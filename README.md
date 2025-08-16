@@ -1,3 +1,4 @@
+
 # Fitness Coach App
 
 A comprehensive web application for fitness & nutrition coaches to manage clients, assign diet and workout plans, and track progress.
@@ -200,3 +201,5 @@ fitness-coach-app-v1/
 ## License
 
 MIT License
+=======
+# Fitness-coach-app
