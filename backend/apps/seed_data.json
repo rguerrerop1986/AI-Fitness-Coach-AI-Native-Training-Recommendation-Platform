@@ -1,0 +1,402 @@
+[
+  {
+    "model": "users.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$720000$demo123$demo123",
+      "last_login": null,
+      "is_superuser": true,
+      "username": "coach",
+      "first_name": "John",
+      "last_name": "Coach",
+      "email": "coach@example.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "role": "coach",
+      "phone": "+1234567890",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$720000$demo123$demo123",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "assistant",
+      "first_name": "Sarah",
+      "last_name": "Assistant",
+      "email": "assistant@example.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "role": "assistant",
+      "phone": "+1234567891",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 1,
+    "fields": {
+      "first_name": "Alice",
+      "last_name": "Johnson",
+      "date_of_birth": "1990-05-15",
+      "sex": "F",
+      "email": "alice.johnson@email.com",
+      "phone": "+1234567892",
+      "height_cm": "165.0",
+      "initial_weight_kg": "70.0",
+      "notes": "Goal: Weight loss and toning. Prefers morning workouts.",
+      "consent_checkbox": true,
+      "emergency_contact": "Bob Johnson (Husband): +1234567893",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "clients.client",
+    "pk": 2,
+    "fields": {
+      "first_name": "Mike",
+      "last_name": "Smith",
+      "date_of_birth": "1985-08-22",
+      "sex": "M",
+      "email": "mike.smith@email.com",
+      "phone": "+1234567894",
+      "height_cm": "180.0",
+      "initial_weight_kg": "85.0",
+      "notes": "Goal: Muscle building. Has gym access. Allergic to nuts.",
+      "consent_checkbox": true,
+      "emergency_contact": "Lisa Smith (Wife): +1234567895",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 1,
+    "fields": {
+      "name": "Chicken Breast",
+      "brand": "Organic Valley",
+      "serving_size": "100.0",
+      "kcal": "165.0",
+      "protein_g": "31.0",
+      "carbs_g": "0.0",
+      "fat_g": "3.6",
+      "tags": ["protein", "lean", "dinner"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 2,
+    "fields": {
+      "name": "Brown Rice",
+      "brand": "Uncle Ben's",
+      "serving_size": "100.0",
+      "kcal": "111.0",
+      "protein_g": "2.6",
+      "carbs_g": "23.0",
+      "fat_g": "0.9",
+      "tags": ["carbs", "complex", "lunch"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 3,
+    "fields": {
+      "name": "Broccoli",
+      "brand": "",
+      "serving_size": "100.0",
+      "kcal": "34.0",
+      "protein_g": "2.8",
+      "carbs_g": "7.0",
+      "fat_g": "0.4",
+      "tags": ["vegetables", "fiber", "vitamins"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 4,
+    "fields": {
+      "name": "Salmon",
+      "brand": "Wild Alaskan",
+      "serving_size": "100.0",
+      "kcal": "208.0",
+      "protein_g": "25.0",
+      "carbs_g": "0.0",
+      "fat_g": "12.0",
+      "tags": ["protein", "omega3", "dinner"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 5,
+    "fields": {
+      "name": "Greek Yogurt",
+      "brand": "Chobani",
+      "serving_size": "100.0",
+      "kcal": "59.0",
+      "protein_g": "10.0",
+      "carbs_g": "3.6",
+      "fat_g": "0.4",
+      "tags": ["protein", "dairy", "breakfast"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 6,
+    "fields": {
+      "name": "Oatmeal",
+      "brand": "Quaker",
+      "serving_size": "100.0",
+      "kcal": "68.0",
+      "protein_g": "2.4",
+      "carbs_g": "12.0",
+      "fat_g": "1.4",
+      "tags": ["carbs", "fiber", "breakfast"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 7,
+    "fields": {
+      "name": "Sweet Potato",
+      "brand": "",
+      "serving_size": "100.0",
+      "kcal": "86.0",
+      "protein_g": "1.6",
+      "carbs_g": "20.0",
+      "fat_g": "0.1",
+      "tags": ["carbs", "complex", "vitamins"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 8,
+    "fields": {
+      "name": "Eggs",
+      "brand": "Farm Fresh",
+      "serving_size": "100.0",
+      "kcal": "155.0",
+      "protein_g": "13.0",
+      "carbs_g": "1.1",
+      "fat_g": "11.0",
+      "tags": ["protein", "breakfast", "versatile"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 9,
+    "fields": {
+      "name": "Spinach",
+      "brand": "",
+      "serving_size": "100.0",
+      "kcal": "23.0",
+      "protein_g": "2.9",
+      "carbs_g": "3.6",
+      "fat_g": "0.4",
+      "tags": ["vegetables", "iron", "vitamins"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.food",
+    "pk": 10,
+    "fields": {
+      "name": "Almonds",
+      "brand": "Blue Diamond",
+      "serving_size": "100.0",
+      "kcal": "579.0",
+      "protein_g": "21.0",
+      "carbs_g": "22.0",
+      "fat_g": "50.0",
+      "tags": ["protein", "healthy_fats", "snack"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 1,
+    "fields": {
+      "name": "Push-ups",
+      "muscle_group": "chest",
+      "equipment": "bodyweight",
+      "difficulty": "beginner",
+      "instructions": "Start in a plank position with hands slightly wider than shoulders. Lower your body until your chest nearly touches the floor, then push back up.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 2,
+    "fields": {
+      "name": "Squats",
+      "muscle_group": "quads",
+      "equipment": "bodyweight",
+      "difficulty": "beginner",
+      "instructions": "Stand with feet shoulder-width apart. Lower your body as if sitting back into a chair, keeping your chest up and knees behind toes.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 3,
+    "fields": {
+      "name": "Pull-ups",
+      "muscle_group": "back",
+      "equipment": "pull-up bar",
+      "difficulty": "intermediate",
+      "instructions": "Hang from a pull-up bar with hands shoulder-width apart. Pull your body up until your chin is above the bar, then lower back down.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 4,
+    "fields": {
+      "name": "Deadlift",
+      "muscle_group": "full_body",
+      "equipment": "barbell",
+      "difficulty": "advanced",
+      "instructions": "Stand with feet hip-width apart, barbell in front. Bend at hips and knees to grasp bar, then stand up straight while keeping bar close to body.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 5,
+    "fields": {
+      "name": "Bench Press",
+      "muscle_group": "chest",
+      "equipment": "barbell",
+      "difficulty": "intermediate",
+      "instructions": "Lie on bench with feet flat on floor. Lower barbell to chest, then press back up to starting position.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 6,
+    "fields": {
+      "name": "Plank",
+      "muscle_group": "core",
+      "equipment": "bodyweight",
+      "difficulty": "beginner",
+      "instructions": "Hold a plank position with body straight from head to heels, engaging core muscles.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 7,
+    "fields": {
+      "name": "Running",
+      "muscle_group": "cardio",
+      "equipment": "none",
+      "difficulty": "beginner",
+      "instructions": "Run at a comfortable pace, maintaining good posture and breathing rhythm.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 8,
+    "fields": {
+      "name": "Bicep Curls",
+      "muscle_group": "biceps",
+      "equipment": "dumbbells",
+      "difficulty": "beginner",
+      "instructions": "Stand with dumbbells at sides, palms facing forward. Curl weights up to shoulders, then lower back down.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 9,
+    "fields": {
+      "name": "Shoulder Press",
+      "muscle_group": "shoulders",
+      "equipment": "dumbbells",
+      "difficulty": "intermediate",
+      "instructions": "Sit or stand with dumbbells at shoulder level. Press weights overhead, then lower back to starting position.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "catalogs.exercise",
+    "pk": 10,
+    "fields": {
+      "name": "Lunges",
+      "muscle_group": "quads",
+      "equipment": "bodyweight",
+      "difficulty": "beginner",
+      "instructions": "Step forward with one leg, lowering your body until both knees are bent at 90 degrees. Push back to starting position.",
+      "video_url": "",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]
