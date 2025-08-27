@@ -55,7 +55,7 @@ services:
       - VITE_API_URL=http://localhost:8000/api
     depends_on:
       - backend
-    command: npm run dev -- --host 0.0.0.0
+    command: sh -c "rm -rf node_modules/* || true && rm -f package-lock.json || true && npm install && npm run dev -- --host 0.0.0.0"
 
 volumes:
   postgres_data:

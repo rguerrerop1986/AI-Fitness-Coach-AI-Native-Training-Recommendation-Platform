@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -11,6 +12,8 @@ import Exercises from './pages/Exercises'
 import Plans from './pages/Plans'
 import CheckIns from './pages/CheckIns'
 import Layout from './components/Layout'
+import ClientLogin from './pages/ClientLogin'
+import ClientDashboard from './pages/ClientDashboard'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -30,9 +33,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function ClientProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { client, loading } = useClientAuth()
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+  
+  if (!client) {
+    return <Navigate to="/client/login" replace />
+  }
+  
+  return <>{children}</>
+}
+
 function AppRoutes() {
   return (
     <Routes>
+      {/* Coach/Admin Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/" element={
         <ProtectedRoute>
@@ -50,6 +72,14 @@ function AppRoutes() {
         <Route path="plans" element={<Plans />} />
         <Route path="checkins" element={<CheckIns />} />
       </Route>
+
+      {/* Client Portal Routes */}
+      <Route path="/client/login" element={<ClientLogin />} />
+      <Route path="/client/dashboard" element={
+        <ClientProtectedRoute>
+          <ClientDashboard />
+        </ClientProtectedRoute>
+      } />
     </Routes>
   )
 }
@@ -57,7 +87,9 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ClientAuthProvider>
+        <AppRoutes />
+      </ClientAuthProvider>
     </AuthProvider>
   )
 }

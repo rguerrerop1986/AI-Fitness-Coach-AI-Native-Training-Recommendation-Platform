@@ -11,6 +11,7 @@ A comprehensive web application for fitness & nutrition coaches to manage client
 - **Progress Tracking**: Weekly check-ins with trend analysis and charts
 - **Notifications**: Email reminders for check-ins
 - **Reports**: Dashboard with client progress and adherence metrics
+- **Client Portal**: Secure client access to assigned plans with PDF download capability
 
 ## Tech Stack
 
@@ -44,17 +45,21 @@ docker-compose up --build
 
 3. Access the applications:
 - Backend API: http://localhost:8000
-- Frontend: http://localhost:5173
+- Frontend (Coach Portal): http://localhost:5173
+- Client Portal: http://localhost:5173/client/login
 - API Documentation: http://localhost:8000/api/docs/
 
 ### Demo Credentials
 
 - **Coach Login**: 
-  - Email: `coach@example.com`
+  - Username: `coach`
   - Password: `demo123`
 - **Assistant Login**:
-  - Email: `assistant@example.com`
+  - Username: `assistant`
   - Password: `demo123`
+- **Client Portal**:
+  - John Doe: Username `john_doe`, Password `client123`
+  - Jane Smith: Username `jane_smith`, Password `client456`
 
 ## Environment Variables
 
@@ -112,9 +117,10 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-6. Load seed data:
+6. Load seed data and setup client portal:
 ```bash
 python manage.py loaddata seed_data
+python setup_client_portal.py
 ```
 
 7. Run the development server:
@@ -151,6 +157,10 @@ npm run dev
 - **Assignments**: `/api/assignments/`
 - **Check-ins**: `/api/checkins/`
 - **Reports**: `/api/reports/progress/`
+- **Client Portal**: `/api/client/`
+  - Authentication: `/api/client/auth/login/`
+  - Dashboard: `/api/client/dashboard/`
+  - Plans: `/api/client/plans/`
 
 ## Testing
 
