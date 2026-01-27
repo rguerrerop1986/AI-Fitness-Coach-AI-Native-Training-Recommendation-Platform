@@ -41,7 +41,8 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/client/auth/token/', {
+      // Use unified auth endpoint with client-specific serializer
+      const response = await api.post('/auth/token/client/', {
         username,
         password
       })
@@ -75,7 +76,8 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         throw new Error('No refresh token')
       }
 
-      const response = await api.post('/client/auth/token/refresh/', {
+      // Use unified token refresh endpoint
+      const response = await api.post('/auth/token/refresh/', {
         refresh: refresh
       })
       

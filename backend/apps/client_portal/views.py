@@ -6,91 +6,22 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import make_password, check_password
 from xhtml2pdf import pisa
 from io import BytesIO
 from django.template.loader import get_template
 from django.template import Context
 
-from .models import ClientSubscription, ClientAccessLog
+from .models import ClientAccessLog
 from .serializers import (
-    ClientSubscriptionSerializer, ClientLoginSerializer,
     ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
+from apps.plans.serializers import PlanAssignmentSerializer
 from apps.common.permissions import IsClient, get_client_from_user
-
-
-class ClientTokenObtainPairView(TokenObtainPairView):
-    """Custom token view that only allows clients to login."""
-    permission_classes = [AllowAny]
-    
-    def post(self, request, *args, **kwargs):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        
-        if not username or not password:
-            return Response({
-                'error': 'Username and password are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Authenticate user
-        user = authenticate(username=username, password=password)
-        
-        if not user:
-            return Response({
-                'error': 'Invalid credentials'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # Check if user is a client
-        if user.role != 'client':
-            return Response({
-                'error': 'Only clients can access the client portal'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
-        # Check if client has a linked Client record
-        try:
-            client = Client.objects.get(user=user)
-        except Client.DoesNotExist:
-            return Response({
-                'error': 'Client profile not found. Please contact your coach.'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        # Generate tokens
-        refresh = RefreshToken.for_user(user)
-        
-        # Log access
-        ClientAccessLog.objects.create(
-            client=client,
-            action='login',
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
-        
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'client': {
-                'id': client.id,
-                'name': client.full_name,
-                'email': client.email,
-            }
-        })
-    
-    def get_client_ip(self, request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
 
 
 class ClientDashboardView(APIView):
@@ -112,6 +43,7 @@ class ClientDashboardView(APIView):
 class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for client plan access (client only, own data only)."""
     permission_classes = [IsAuthenticated, IsClient]
+    serializer_class = PlanAssignmentSerializer
     
     def get_queryset(self):
         # Get client from user with guardrails - NEVER use client_id param
@@ -135,15 +67,17 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
                 'error': 'No diet plan assigned'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Log access
-        ClientAccessLog.objects.create(
-            client=assignment.client,
-            action='view_plan',
-            plan_type='diet',
-            plan_id=assignment.diet_plan.id,
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
+        # Log access (client is inferred from request.user)
+        client = get_client_from_user(request.user)
+        if client:
+            ClientAccessLog.objects.create(
+                client=client,
+                action='view_plan',
+                plan_type='diet',
+                plan_id=assignment.diet_plan.id,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         
         serializer = DietPlanDetailSerializer(assignment.diet_plan)
         return Response(serializer.data)
@@ -158,15 +92,17 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
                 'error': 'No workout plan assigned'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Log access
-        ClientAccessLog.objects.create(
-            client=assignment.client,
-            action='view_plan',
-            plan_type='workout',
-            plan_id=assignment.workout_plan.id,
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
+        # Log access (client is inferred from request.user)
+        client = get_client_from_user(request.user)
+        if client:
+            ClientAccessLog.objects.create(
+                client=client,
+                action='view_plan',
+                plan_type='workout',
+                plan_id=assignment.workout_plan.id,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         
         serializer = WorkoutPlanDetailSerializer(assignment.workout_plan)
         return Response(serializer.data)
@@ -181,18 +117,25 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
                 'error': 'No diet plan assigned'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Log download
-        ClientAccessLog.objects.create(
-            client=assignment.client,
-            action='download_pdf',
-            plan_type='diet',
-            plan_id=assignment.diet_plan.id,
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
+        # Log download (client is inferred from request.user)
+        client = get_client_from_user(request.user)
+        if client:
+            ClientAccessLog.objects.create(
+                client=client,
+                action='download_pdf',
+                plan_type='diet',
+                plan_id=assignment.diet_plan.id,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         
-        # Generate PDF
-        pdf_content = self.generate_diet_pdf(assignment.diet_plan, assignment.client)
+        # Generate PDF (use client from request.user)
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response({
+                'error': 'Client profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        pdf_content = self.generate_diet_pdf(assignment.diet_plan, client)
         
         response = HttpResponse(pdf_content, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="diet_plan_{assignment.diet_plan.title.replace(" ", "_")}.pdf"'
@@ -208,18 +151,25 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
                 'error': 'No workout plan assigned'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Log download
-        ClientAccessLog.objects.create(
-            client=assignment.client,
-            action='download_pdf',
-            plan_type='workout',
-            plan_id=assignment.workout_plan.id,
-            ip_address=self.get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
+        # Log download (client is inferred from request.user)
+        client = get_client_from_user(request.user)
+        if client:
+            ClientAccessLog.objects.create(
+                client=client,
+                action='download_pdf',
+                plan_type='workout',
+                plan_id=assignment.workout_plan.id,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
         
-        # Generate PDF
-        pdf_content = self.generate_workout_pdf(assignment.workout_plan, assignment.client)
+        # Generate PDF (use client from request.user)
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response({
+                'error': 'Client profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        pdf_content = self.generate_workout_pdf(assignment.workout_plan, client)
         
         response = HttpResponse(pdf_content, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="workout_plan_{assignment.workout_plan.title.replace(" ", "_")}.pdf"'
@@ -284,16 +234,3 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
         return ip
 
 
-class ClientSubscriptionViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing client subscriptions (admin only)."""
-    queryset = ClientSubscription.objects.all()
-    serializer_class = ClientSubscriptionSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def perform_create(self, serializer):
-        # Hash the password before saving
-        if 'password' in self.request.data:
-            password = self.request.data['password']
-            serializer.save(password_hash=make_password(password))
-        else:
-            serializer.save()

@@ -19,7 +19,8 @@ export default function ClientLogin() {
     setError('')
 
     try {
-      const response = await api.post('/client/auth/token/', {
+      // Use unified auth endpoint with client-specific serializer
+      const response = await api.post('/auth/token/client/', {
         username,
         password
       })

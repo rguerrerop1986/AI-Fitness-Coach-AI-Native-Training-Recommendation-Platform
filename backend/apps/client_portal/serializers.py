@@ -1,26 +1,7 @@
 from rest_framework import serializers
-from .models import ClientSubscription, ClientAccessLog
+from .models import ClientAccessLog
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
-
-
-class ClientSubscriptionSerializer(serializers.ModelSerializer):
-    client_name = serializers.CharField(source='client.full_name', read_only=True)
-    client_email = serializers.CharField(source='client.email', read_only=True)
-    
-    class Meta:
-        model = ClientSubscription
-        fields = [
-            'id', 'client', 'client_name', 'client_email', 'username', 
-            'status', 'subscription_start', 'subscription_end', 
-            'last_login', 'is_active', 'created_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'is_active']
-
-
-class ClientLoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField(write_only=True)
 
 
 class ClientDashboardSerializer(serializers.ModelSerializer):

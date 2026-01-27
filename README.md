@@ -186,26 +186,33 @@ The command will:
 
 **Important**: Clients should change their passwords after first login.
 
-### Login Endpoints
+### Login Endpoints (Unified SimpleJWT)
 
-- **Coach/Assistant Login**: `POST /api/auth/login/`
+All authentication uses Django User accounts with SimpleJWT tokens:
+
+- **Standard Login** (Coach/Assistant): `POST /api/auth/token/`
   - Body: `{ "username": "coach", "password": "demo123" }`
-  - Returns: `{ "user": {...}, "tokens": { "access": "...", "refresh": "..." } }`
+  - Returns: `{ "access": "...", "refresh": "..." }`
 
-- **Client Login**: `POST /api/client/auth/token/`
+- **Client Portal Login**: `POST /api/auth/token/client/`
   - Body: `{ "username": "john_doe", "password": "client123" }`
   - Returns: `{ "access": "...", "refresh": "...", "client": {...} }`
+  - Validates: user role is 'client' and Client profile is linked
 
-- **Token Refresh**: `POST /api/auth/token/refresh/` (coach) or `POST /api/client/auth/token/refresh/` (client)
+- **Token Refresh** (Unified): `POST /api/auth/token/refresh/`
   - Body: `{ "refresh": "..." }`
   - Returns: `{ "access": "...", "refresh": "..." }`
+  - Works for both coach and client tokens
+
+**Note**: The old `/api/client/auth/login/` endpoint has been removed. All authentication now uses unified SimpleJWT endpoints.
 
 ## API Endpoints
 
-- **Authentication**: 
-  - Coach/Assistant: `/api/auth/login/`
-  - Client: `/api/client/auth/token/`
-  - Token Refresh: `/api/auth/token/refresh/` or `/api/client/auth/token/refresh/`
+- **Authentication** (Unified SimpleJWT):
+  - All users: `/api/auth/token/` (standard SimpleJWT endpoint)
+  - Client portal: `/api/auth/token/client/` (validates client role + linked Client profile)
+  - Token Refresh: `/api/auth/token/refresh/` (unified for all users)
+  - Legacy: `/api/auth/login/` (coach/assistant, kept for backwards compatibility)
 - **Clients**: `/api/clients/` (coach only)
 - **Measurements**: `/api/clients/{id}/measurements/` (coach only)
 - **Foods**: `/api/foods/` (coach only)
@@ -219,10 +226,10 @@ The command will:
   - Current cycle: `/api/plan-cycles/current/?client={id}` (coach)
 - **Check-ins**: `/api/checkins/` (coach only)
 - **Reports**: `/api/reports/progress/` (coach only)
-- **Client Portal**: 
-  - Dashboard: `/api/client/dashboard/` (client only, returns own data)
-  - Plans: `/api/client/plans/` (client only, returns own assignments)
-  - Current Cycle: `/api/client/current-cycle/` (client only, returns active cycle)
+- **Client Portal** (all endpoints require client role):
+  - Dashboard: `/api/client/dashboard/` (returns own data, inferred from token)
+  - Plans: `/api/client/plans/` (returns own assignments only)
+  - Current Cycle: `/api/client/current-cycle/` (returns active cycle)
 
 ## Testing
 
@@ -299,13 +306,16 @@ pytest --cov=. --cov-report=html
 
 ### Verification Checklist
 
-- [ ] Client can authenticate via `/api/client/auth/token/`
+- [ ] Client can authenticate via `/api/auth/token/client/` (unified SimpleJWT)
+- [ ] Client receives standard JWT tokens (access/refresh)
 - [ ] Client can access ONLY their own plans/measurements/checkins via `/api/client/dashboard/`
 - [ ] Client cannot access other clients' data (returns 403/404)
 - [ ] Client cannot access coach endpoints (returns 403)
+- [ ] Coach can authenticate via `/api/auth/token/`
 - [ ] Coach can access all clients/plans via `/api/clients/`, `/api/diet-plans/`, etc.
 - [ ] Coach cannot access client portal endpoints (returns 403)
-- [ ] Token refresh works for both coach and client
+- [ ] Token refresh works for both coach and client via `/api/auth/token/refresh/`
+- [ ] No ClientSubscription model exists (removed, using unified User auth)
 - [ ] PlanCycle can be created and linked to assignments
 - [ ] CheckIns auto-link to active PlanCycle
 - [ ] No overlapping active PlanCycles allowed for same client

@@ -1,5 +1,7 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
+from apps.clients.models import Client
 from .models import User
 
 
@@ -52,3 +54,56 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
         return user
+
+
+class ClientTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom token serializer for clients that validates client role and linked Client profile."""
+    
+    def validate(self, attrs):
+        # Call parent validation to authenticate user
+        data = super().validate(attrs)
+        
+        # Check if user is a client
+        if self.user.role != 'client':
+            raise serializers.ValidationError('Only clients can access the client portal.')
+        
+        # Check if client has a linked Client record
+        try:
+            client = Client.objects.get(user=self.user)
+        except Client.DoesNotExist:
+            raise serializers.ValidationError('Client profile not found. Please contact your coach.')
+        
+        # Log login access (request is automatically in context from TokenObtainPairView)
+        try:
+            from apps.client_portal.models import ClientAccessLog
+            
+            request = self.context.get('request')
+            ip_address = None
+            user_agent = ''
+            
+            if request:
+                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                if x_forwarded_for:
+                    ip_address = x_forwarded_for.split(',')[0]
+                else:
+                    ip_address = request.META.get('REMOTE_ADDR', None)
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            ClientAccessLog.objects.create(
+                client=client,
+                action='login',
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception:
+            # Don't fail login if logging fails
+            pass
+        
+        # Add client info to response
+        data['client'] = {
+            'id': client.id,
+            'name': client.full_name,
+            'email': client.email,
+        }
+        
+        return data

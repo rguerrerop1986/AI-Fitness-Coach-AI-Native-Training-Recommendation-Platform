@@ -7,12 +7,14 @@ from datetime import date, timedelta
 
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
-from .models import ClientSubscription, ClientAccessLog
+from .models import ClientAccessLog
 
 User = get_user_model()
 
 
 class ClientPortalModelsTest(TestCase):
+    """Tests for client portal models (ClientAccessLog)."""
+    
     def setUp(self):
         self.coach = User.objects.create_user(
             username='coach',
@@ -31,29 +33,6 @@ class ClientPortalModelsTest(TestCase):
             initial_weight_kg=80.0,
             consent_checkbox=True
         )
-        
-        self.subscription = ClientSubscription.objects.create(
-            client=self.client_obj,
-            username='john_doe',
-            password_hash='hashed_password',
-            status='active',
-            subscription_start=date.today(),
-            subscription_end=date.today() + timedelta(days=30)
-        )
-
-    def test_client_subscription_str(self):
-        self.assertEqual(
-            str(self.subscription),
-            f"{self.client_obj.full_name} - active"
-        )
-
-    def test_client_subscription_is_active(self):
-        self.assertTrue(self.subscription.is_active)
-        
-        # Test expired subscription
-        self.subscription.subscription_end = date.today() - timedelta(days=1)
-        self.subscription.save()
-        self.assertFalse(self.subscription.is_active)
 
 
 class ClientPortalAPITest(APITestCase):
@@ -132,10 +111,10 @@ class ClientPortalAPITest(APITestCase):
         )
 
     def test_client_login_success(self):
-        """Test successful client login with new JWT auth"""
-        url = reverse('client-token-obtain')
+        """Test successful client login with unified JWT auth"""
+        url = reverse('users:client_token_obtain')  # Using unified endpoint in users app
         data = {
-            'username': 'john_doe',
+            'username': self.client_user.username,
             'password': 'testpass123'
         }
         
@@ -148,9 +127,9 @@ class ClientPortalAPITest(APITestCase):
 
     def test_client_login_invalid_credentials(self):
         """Test client login with invalid credentials"""
-        url = reverse('client-token-obtain')
+        url = reverse('users:client_token_obtain')
         data = {
-            'username': 'john_doe',
+            'username': self.client_user.username,
             'password': 'wrongpassword'
         }
         
@@ -159,14 +138,15 @@ class ClientPortalAPITest(APITestCase):
 
     def test_client_login_non_client_user(self):
         """Test that non-client users cannot login to client portal"""
-        url = reverse('client-token-obtain')
+        url = reverse('users:client_token_obtain')
         data = {
             'username': 'coach',
             'password': 'testpass123'
         }
         
         response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # Should return validation error, not 403
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_client_login_no_client_profile(self):
         """Test login fails if user has no linked Client profile"""
@@ -178,14 +158,15 @@ class ClientPortalAPITest(APITestCase):
             role='client'
         )
         
-        url = reverse('client-token-obtain')
+        url = reverse('users:client_token_obtain')
         data = {
             'username': 'orphan',
             'password': 'testpass123'
         }
         
         response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # Should return validation error
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_client_dashboard_requires_auth(self):
         """Test that client dashboard requires authentication"""
@@ -247,23 +228,23 @@ class ClientPortalAPITest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_client_access_log_created_on_login(self):
-        """Test that ClientAccessLog is created on successful login"""
+    def test_client_access_log_created_on_plan_access(self):
+        """Test that ClientAccessLog is created when client accesses plans"""
         initial_count = ClientAccessLog.objects.count()
-        url = reverse('client-token-obtain')
-        data = {
-            'username': 'john_doe',
-            'password': 'testpass123'
-        }
         
-        response = self.client.post(url, data)
+        # Login first
+        self.client.force_authenticate(user=self.client_user)
+        
+        # Access a plan detail (diet plan detail action)
+        url = reverse('client-plan-diet-plan-detail', kwargs={'pk': self.assignment.pk})
+        response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Check that access log was created
         self.assertEqual(ClientAccessLog.objects.count(), initial_count + 1)
         log_entry = ClientAccessLog.objects.latest('created_at')
         self.assertEqual(log_entry.client, self.client_obj)
-        self.assertEqual(log_entry.action, 'login')
+        self.assertEqual(log_entry.action, 'view_plan')
     
     def test_coach_cannot_access_client_portal_endpoints(self):
         """Test that coach cannot access client portal endpoints."""
@@ -284,12 +265,11 @@ class ClientPortalAPITest(APITestCase):
         self.client.force_authenticate(user=self.client_user)
         
         # Try to access clients list
-        from django.urls import reverse as django_reverse
-        url = django_reverse('client-list')
+        url = '/api/clients/'
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         
         # Try to access diet plans
-        url = django_reverse('dietplan-list')
+        url = '/api/diet-plans/'
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
