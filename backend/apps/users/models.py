@@ -8,6 +8,7 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         COACH = 'coach', 'Coach'
         ASSISTANT = 'assistant', 'Assistant'
+        CLIENT = 'client', 'Client'
     
     role = models.CharField(
         max_length=10,
@@ -29,3 +30,7 @@ class User(AbstractUser):
     @property
     def is_assistant(self):
         return self.role == self.Role.ASSISTANT
+    
+    @property
+    def is_client(self):
+        return self.role == self.Role.CLIENT

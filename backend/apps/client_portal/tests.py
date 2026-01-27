@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
-from .models import ClientSubscription
+from .models import ClientSubscription, ClientAccessLog
 
 User = get_user_model()
 
@@ -65,6 +65,16 @@ class ClientPortalAPITest(APITestCase):
             role='coach'
         )
         
+        # Create client user
+        self.client_user = User.objects.create_user(
+            username='john_doe',
+            email='john@example.com',
+            password='testpass123',
+            role='client',
+            first_name='John',
+            last_name='Doe'
+        )
+        
         self.client_obj = Client.objects.create(
             first_name='John',
             last_name='Doe',
@@ -73,16 +83,30 @@ class ClientPortalAPITest(APITestCase):
             sex='M',
             height_cm=175.0,
             initial_weight_kg=80.0,
-            consent_checkbox=True
+            consent_checkbox=True,
+            user=self.client_user  # Link client to user
         )
         
-        self.subscription = ClientSubscription.objects.create(
-            client=self.client_obj,
-            username='john_doe',
-            password_hash='pbkdf2_sha256$600000$test$hash',
-            status='active',
-            subscription_start=date.today(),
-            subscription_end=date.today() + timedelta(days=30)
+        # Create another client user for isolation testing
+        self.other_client_user = User.objects.create_user(
+            username='jane_smith',
+            email='jane@example.com',
+            password='testpass123',
+            role='client',
+            first_name='Jane',
+            last_name='Smith'
+        )
+        
+        self.other_client = Client.objects.create(
+            first_name='Jane',
+            last_name='Smith',
+            email='jane@example.com',
+            date_of_birth=date(1992, 5, 15),
+            sex='F',
+            height_cm=165.0,
+            initial_weight_kg=65.0,
+            consent_checkbox=True,
+            user=self.other_client_user
         )
         
         # Create a diet plan
@@ -108,8 +132,8 @@ class ClientPortalAPITest(APITestCase):
         )
 
     def test_client_login_success(self):
-        """Test successful client login"""
-        url = reverse('client-login')
+        """Test successful client login with new JWT auth"""
+        url = reverse('client-token-obtain')
         data = {
             'username': 'john_doe',
             'password': 'testpass123'
@@ -117,12 +141,14 @@ class ClientPortalAPITest(APITestCase):
         
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access_token', response.data)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
         self.assertIn('client', response.data)
+        self.assertEqual(response.data['client']['id'], self.client_obj.id)
 
     def test_client_login_invalid_credentials(self):
         """Test client login with invalid credentials"""
-        url = reverse('client-login')
+        url = reverse('client-token-obtain')
         data = {
             'username': 'john_doe',
             'password': 'wrongpassword'
@@ -131,14 +157,110 @@ class ClientPortalAPITest(APITestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_client_login_non_client_user(self):
+        """Test that non-client users cannot login to client portal"""
+        url = reverse('client-token-obtain')
+        data = {
+            'username': 'coach',
+            'password': 'testpass123'
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_client_login_no_client_profile(self):
+        """Test login fails if user has no linked Client profile"""
+        # Create user without client profile
+        orphan_user = User.objects.create_user(
+            username='orphan',
+            email='orphan@example.com',
+            password='testpass123',
+            role='client'
+        )
+        
+        url = reverse('client-token-obtain')
+        data = {
+            'username': 'orphan',
+            'password': 'testpass123'
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_client_dashboard_requires_auth(self):
         """Test that client dashboard requires authentication"""
         url = reverse('client-dashboard')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_client_dashboard_access(self):
+        """Test that authenticated client can access their dashboard"""
+        self.client.force_authenticate(user=self.client_user)
+        url = reverse('client-dashboard')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['id'], self.client_obj.id)
+
+    def test_client_can_only_see_own_plans(self):
+        """Test that client can only see their own plan assignments"""
+        # Create assignment for other client
+        other_assignment = PlanAssignment.objects.create(
+            client=self.other_client,
+            plan_type='diet',
+            diet_plan=self.diet_plan,
+            start_date=date.today(),
+            is_active=True,
+            assigned_by=self.coach
+        )
+        
+        self.client.force_authenticate(user=self.client_user)
+        url = reverse('client-plan-list')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only see own assignment
+        assignment_ids = [a['id'] for a in response.data['results']] if 'results' in response.data else [a['id'] for a in response.data]
+        self.assertIn(self.assignment.id, assignment_ids)
+        self.assertNotIn(other_assignment.id, assignment_ids)
+
+    def test_client_cannot_access_other_client_data(self):
+        """Test that client cannot access another client's data"""
+        self.client.force_authenticate(user=self.client_user)
+        
+        # Try to access other client's assignment
+        other_assignment = PlanAssignment.objects.create(
+            client=self.other_client,
+            plan_type='diet',
+            diet_plan=self.diet_plan,
+            start_date=date.today(),
+            is_active=True,
+            assigned_by=self.coach
+        )
+        
+        url = reverse('client-plan-detail', kwargs={'pk': other_assignment.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_client_plan_access_requires_auth(self):
         """Test that plan access requires authentication"""
         url = reverse('client-plan-detail', kwargs={'pk': self.assignment.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_client_access_log_created_on_login(self):
+        """Test that ClientAccessLog is created on successful login"""
+        initial_count = ClientAccessLog.objects.count()
+        url = reverse('client-token-obtain')
+        data = {
+            'username': 'john_doe',
+            'password': 'testpass123'
+        }
+        
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Check that access log was created
+        self.assertEqual(ClientAccessLog.objects.count(), initial_count + 1)
+        log_entry = ClientAccessLog.objects.latest('created_at')
+        self.assertEqual(log_entry.client, self.client_obj)
+        self.assertEqual(log_entry.action, 'login')

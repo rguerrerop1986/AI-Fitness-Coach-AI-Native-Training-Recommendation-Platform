@@ -19,26 +19,26 @@ export default function ClientLogin() {
     setError('')
 
     try {
-      const response = await api.post('/client/auth/login/', {
+      const response = await api.post('/client/auth/token/', {
         username,
         password
       })
 
-      const { access_token, refresh_token, client } = response.data
+      const { access, refresh, client } = response.data
 
       // Store tokens and client info
-      localStorage.setItem('client_access_token', access_token)
-      localStorage.setItem('client_refresh_token', refresh_token)
+      localStorage.setItem('client_access_token', access)
+      localStorage.setItem('client_refresh_token', refresh)
       localStorage.setItem('client_info', JSON.stringify(client))
 
       // Set authorization header for future requests
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+      api.defaults.headers.common['Authorization'] = `Bearer ${access}`
 
       // Redirect to client dashboard
       navigate('/client/dashboard')
     } catch (error: any) {
       console.error('Login error:', error)
-      setError(error.response?.data?.error || 'Login failed. Please try again.')
+      setError(error.response?.data?.error || error.response?.data?.detail || 'Login failed. Please try again.')
     } finally {
       setLoading(false)
     }

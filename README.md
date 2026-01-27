@@ -51,15 +51,18 @@ docker-compose up --build
 
 ### Demo Credentials
 
-- **Coach Login**: 
+After running migrations and creating users:
+
+- **Coach Login** (Coach Portal): 
   - Username: `coach`
   - Password: `demo123`
-- **Assistant Login**:
+- **Assistant Login** (Coach Portal):
   - Username: `assistant`
   - Password: `demo123`
 - **Client Portal**:
-  - John Doe: Username `john_doe`, Password `client123`
-  - Jane Smith: Username `jane_smith`, Password `client456`
+  - Clients log in with their User account credentials (username/password)
+  - Use `python manage.py create_client_users` to create client user accounts
+  - Credentials will be printed by the command
 
 ## Environment Variables
 
@@ -117,13 +120,19 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-6. Load seed data and setup client portal:
+6. Load seed data:
 ```bash
 python manage.py loaddata seed_data
-python setup_client_portal.py
 ```
 
-7. Run the development server:
+7. Create client user accounts (if you have existing clients):
+```bash
+python manage.py create_client_users
+```
+
+**Note**: The old `setup_client_portal.py` script is deprecated. Client authentication now uses standard Django User accounts with the `client` role. Use the `create_client_users` management command instead.
+
+8. Run the development server:
 ```bash
 python manage.py runserver
 ```
@@ -145,22 +154,70 @@ npm install
 npm run dev
 ```
 
+## Authentication & Roles
+
+The application uses unified Django authentication with JWT tokens for all users:
+
+- **Coach/Admin**: Users with `role='coach'` who can manage clients, plans, and view all data
+- **Assistant**: Users with `role='assistant'` who can help manage clients (same permissions as coach)
+- **Client**: Users with `role='client'` who can only view their own assigned plans and measurements
+
+### Creating Client Users
+
+After creating a Client record, you need to create a linked User account for client portal access:
+
+```bash
+# Create user accounts for all clients without linked users
+python manage.py create_client_users
+
+# Or with a specific password
+python manage.py create_client_users --password=SecurePass123
+
+# Dry run to see what would be created
+python manage.py create_client_users --dry-run
+```
+
+The command will:
+- Generate unique usernames from client emails
+- Create User accounts with `role='client'`
+- Link the User to the Client via the `user` field
+- Generate random passwords (or use provided password)
+- Print credentials for sharing with clients
+
+**Important**: Clients should change their passwords after first login.
+
+### Login Endpoints
+
+- **Coach/Assistant Login**: `POST /api/auth/login/`
+  - Body: `{ "username": "coach", "password": "demo123" }`
+  - Returns: `{ "user": {...}, "tokens": { "access": "...", "refresh": "..." } }`
+
+- **Client Login**: `POST /api/client/auth/token/`
+  - Body: `{ "username": "john_doe", "password": "client123" }`
+  - Returns: `{ "access": "...", "refresh": "...", "client": {...} }`
+
+- **Token Refresh**: `POST /api/auth/token/refresh/` (coach) or `POST /api/client/auth/token/refresh/` (client)
+  - Body: `{ "refresh": "..." }`
+  - Returns: `{ "access": "...", "refresh": "..." }`
+
 ## API Endpoints
 
-- **Authentication**: `/api/auth/jwt/`
-- **Clients**: `/api/clients/`
-- **Measurements**: `/api/clients/{id}/measurements/`
-- **Foods**: `/api/foods/`
-- **Exercises**: `/api/exercises/`
-- **Diet Plans**: `/api/diet-plans/`
-- **Workout Plans**: `/api/workout-plans/`
-- **Assignments**: `/api/assignments/`
-- **Check-ins**: `/api/checkins/`
-- **Reports**: `/api/reports/progress/`
-- **Client Portal**: `/api/client/`
-  - Authentication: `/api/client/auth/login/`
-  - Dashboard: `/api/client/dashboard/`
-  - Plans: `/api/client/plans/`
+- **Authentication**: 
+  - Coach/Assistant: `/api/auth/login/`
+  - Client: `/api/client/auth/token/`
+  - Token Refresh: `/api/auth/token/refresh/` or `/api/client/auth/token/refresh/`
+- **Clients**: `/api/clients/` (coach only)
+- **Measurements**: `/api/clients/{id}/measurements/` (coach only)
+- **Foods**: `/api/foods/` (coach only)
+- **Exercises**: `/api/exercises/` (coach only)
+- **Diet Plans**: `/api/diet-plans/` (coach only)
+- **Workout Plans**: `/api/workout-plans/` (coach only)
+- **Assignments**: `/api/assignments/` (coach only)
+- **Check-ins**: `/api/checkins/` (coach only)
+- **Reports**: `/api/reports/progress/` (coach only)
+- **Client Portal**: 
+  - Dashboard: `/api/client/dashboard/` (client only, returns own data)
+  - Plans: `/api/client/plans/` (client only, returns own assignments)
 
 ## Testing
 
@@ -181,6 +238,58 @@ npm test
 cd backend
 pytest --cov=. --cov-report=html
 ```
+
+## How to Test Locally
+
+### Setup Steps
+
+1. **Run migrations**:
+   ```bash
+   cd backend
+   python manage.py migrate
+   ```
+
+2. **Create a superuser (Sandy - Coach/Admin)**:
+   ```bash
+   python manage.py createsuperuser
+   # Username: sandy (or your choice)
+   # Email: sandy@example.com
+   # Password: (set a secure password)
+   # Role: coach
+   ```
+
+3. **Create a client (Raul)**:
+   - Use Django admin or API to create a Client record:
+     - First name: Raul
+     - Last name: (your choice)
+     - Email: raul@example.com
+     - Other required fields...
+
+4. **Create user account for the client**:
+   ```bash
+   python manage.py create_client_users
+   # This will create a User account with role='client' and link it to the Client
+   # Note the username and password printed by the command
+   ```
+
+5. **Test client login**:
+   - Navigate to http://localhost:5173/client/login
+   - Use the credentials from step 4
+   - Verify you can see only Raul's data
+
+6. **Test coach login**:
+   - Navigate to http://localhost:5173/login
+   - Use Sandy's credentials from step 2
+   - Verify you can see all clients and manage them
+
+### Verification Checklist
+
+- [ ] Client can authenticate via `/api/client/auth/token/`
+- [ ] Client can access ONLY their own plans/measurements/checkins via `/api/client/dashboard/`
+- [ ] Client cannot access other clients' data (returns 403/404)
+- [ ] Coach can access all clients/plans via `/api/clients/`, `/api/diet-plans/`, etc.
+- [ ] Coach cannot access client portal endpoints (returns 403)
+- [ ] Token refresh works for both coach and client
 
 ## Project Structure
 

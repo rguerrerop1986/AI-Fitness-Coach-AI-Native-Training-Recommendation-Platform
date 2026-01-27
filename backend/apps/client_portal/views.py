@@ -10,6 +10,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password, check_password
 from xhtml2pdf import pisa
 from io import BytesIO
@@ -23,65 +25,64 @@ from .serializers import (
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
+from apps.users.permissions import IsClient
 
 
-class ClientLoginView(APIView):
-    """Client login endpoint."""
+class ClientTokenObtainPairView(TokenObtainPairView):
+    """Custom token view that only allows clients to login."""
     permission_classes = [AllowAny]
     
-    def post(self, request):
-        serializer = ClientLoginSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            password = serializer.validated_data['password']
-            
-            try:
-                subscription = ClientSubscription.objects.get(username=username)
-                
-                if not subscription.is_active:
-                    return Response({
-                        'error': 'Subscription is not active'
-                    }, status=status.HTTP_401_UNAUTHORIZED)
-                
-                if not check_password(password, subscription.password_hash):
-                    return Response({
-                        'error': 'Invalid credentials'
-                    }, status=status.HTTP_401_UNAUTHORIZED)
-                
-                # Update last login
-                subscription.last_login = timezone.now()
-                subscription.save()
-                
-                # Log access
-                ClientAccessLog.objects.create(
-                    client=subscription.client,
-                    action='login',
-                    ip_address=self.get_client_ip(request),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
-                # Generate JWT token
-                refresh = RefreshToken()
-                refresh['client_id'] = subscription.client.id
-                refresh['username'] = subscription.username
-                refresh['role'] = 'client'
-                
-                return Response({
-                    'access_token': str(refresh.access_token),
-                    'refresh_token': str(refresh),
-                    'client': {
-                        'id': subscription.client.id,
-                        'name': subscription.client.full_name,
-                        'email': subscription.client.email,
-                    }
-                })
-                
-            except ClientSubscription.DoesNotExist:
-                return Response({
-                    'error': 'Invalid credentials'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+    def post(self, request, *args, **kwargs):
+        username = request.data.get('username')
+        password = request.data.get('password')
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not username or not password:
+            return Response({
+                'error': 'Username and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Authenticate user
+        user = authenticate(username=username, password=password)
+        
+        if not user:
+            return Response({
+                'error': 'Invalid credentials'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user is a client
+        if user.role != 'client':
+            return Response({
+                'error': 'Only clients can access the client portal'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if client has a linked Client record
+        try:
+            client = Client.objects.get(user=user)
+        except Client.DoesNotExist:
+            return Response({
+                'error': 'Client profile not found. Please contact your coach.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Generate tokens
+        refresh = RefreshToken.for_user(user)
+        
+        # Log access
+        ClientAccessLog.objects.create(
+            client=client,
+            action='login',
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'client': {
+                'id': client.id,
+                'name': client.full_name,
+                'email': client.email,
+            }
+        })
     
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -94,37 +95,34 @@ class ClientLoginView(APIView):
 
 class ClientDashboardView(APIView):
     """Client dashboard endpoint."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient]
     
     def get(self, request):
-        # Get client from token
-        client_id = request.user.get('client_id')
-        if not client_id:
-            return Response({
-                'error': 'Invalid token'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
+        # Get client from user
         try:
-            client = Client.objects.get(id=client_id)
-            serializer = ClientDashboardSerializer(client)
-            return Response(serializer.data)
+            client = Client.objects.get(user=request.user)
         except Client.DoesNotExist:
             return Response({
-                'error': 'Client not found'
+                'error': 'Client profile not found'
             }, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = ClientDashboardSerializer(client)
+        return Response(serializer.data)
 
 
 class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for client plan access."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient]
     
     def get_queryset(self):
-        client_id = self.request.user.get('client_id')
-        if not client_id:
+        # Get client from user
+        try:
+            client = Client.objects.get(user=self.request.user)
+        except Client.DoesNotExist:
             return PlanAssignment.objects.none()
         
         return PlanAssignment.objects.filter(
-            client_id=client_id,
+            client=client,
             is_active=True
         )
     

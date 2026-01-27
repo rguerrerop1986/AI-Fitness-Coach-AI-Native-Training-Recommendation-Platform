@@ -13,5 +13,11 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
+  },
+  css: {
+    postcss: './postcss.config.js',
+  },
+  build: {
+    cssCodeSplit: false,
   }
 })

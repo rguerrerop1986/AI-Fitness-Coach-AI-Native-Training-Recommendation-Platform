@@ -1,7 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    ClientLoginView, ClientDashboardView, ClientPlanViewSet,
+    ClientTokenObtainPairView, ClientDashboardView, ClientPlanViewSet,
     ClientSubscriptionViewSet
 )
 
@@ -10,7 +11,11 @@ router.register(r'plans', ClientPlanViewSet, basename='client-plan')
 router.register(r'subscriptions', ClientSubscriptionViewSet, basename='client-subscription')
 
 urlpatterns = [
-    path('auth/login/', ClientLoginView.as_view(), name='client-login'),
+    # New unified auth endpoints (replaces old client login)
+    path('auth/token/', ClientTokenObtainPairView.as_view(), name='client-token-obtain'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='client-token-refresh'),
+    # Legacy endpoint (deprecated, kept for backwards compatibility during migration)
+    path('auth/login/', ClientTokenObtainPairView.as_view(), name='client-login'),
     path('dashboard/', ClientDashboardView.as_view(), name='client-dashboard'),
     path('', include(router.urls)),
 ]

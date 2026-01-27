@@ -41,18 +41,18 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await api.post('/client/auth/login/', {
+      const response = await api.post('/client/auth/token/', {
         username,
         password
       })
       
-      const { client: clientData, access_token, refresh_token } = response.data
+      const { client: clientData, access, refresh } = response.data
       
-      localStorage.setItem('client_access_token', access_token)
-      localStorage.setItem('client_refresh_token', refresh_token)
+      localStorage.setItem('client_access_token', access)
+      localStorage.setItem('client_refresh_token', refresh)
       localStorage.setItem('client_info', JSON.stringify(clientData))
       
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+      api.defaults.headers.common['Authorization'] = `Bearer ${access}`
       setClient(clientData)
     } catch (error) {
       console.error('Client login error:', error)
@@ -75,8 +75,8 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
         throw new Error('No refresh token')
       }
 
-      const response = await api.post('/auth/refresh/', {
-        refresh_token: refresh
+      const response = await api.post('/client/auth/token/refresh/', {
+        refresh: refresh
       })
       
       const { access, refresh: newRefresh } = response.data
