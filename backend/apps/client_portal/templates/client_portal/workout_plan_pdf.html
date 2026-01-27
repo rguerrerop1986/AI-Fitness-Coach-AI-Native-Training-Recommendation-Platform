@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ workout_plan.title }} - Workout Plan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #dc3545;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .client-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .plan-info {
+            margin-bottom: 30px;
+        }
+        .workout-day {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        .day-header {
+            background-color: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .exercise {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .exercise-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #dc3545;
+        }
+        .exercise-details {
+            margin-left: 20px;
+        }
+        .set-info {
+            background-color: #f8f9fa;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .measurements {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ workout_plan.title }}</h1>
+        <p><strong>Goal:</strong> {{ workout_plan.get_goal_display }}</p>
+        <p><strong>Version:</strong> {{ workout_plan.version }}</p>
+        <p><strong>Generated:</strong> {{ generated_date }}</p>
+    </div>
+
+    <div class="client-info">
+        <h3>Client Information</h3>
+        <p><strong>Name:</strong> {{ client.full_name }}</p>
+        <p><strong>Email:</strong> {{ client.email }}</p>
+        <p><strong>Height:</strong> {{ client.height_cm }} cm</p>
+        {% if latest_measurement %}
+        <p><strong>Current Weight:</strong> {{ latest_measurement.weight_kg }} kg</p>
+        <p><strong>Body Fat %:</strong> {{ latest_measurement.body_fat_pct|default:"Not measured" }}</p>
+        {% endif %}
+    </div>
+
+    {% if latest_measurement %}
+    <div class="measurements">
+        <h3>Current Measurements</h3>
+        <table>
+            <tr>
+                <th>Measurement</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td>Weight</td>
+                <td>{{ latest_measurement.weight_kg }} kg</td>
+            </tr>
+            {% if latest_measurement.body_fat_pct %}
+            <tr>
+                <td>Body Fat %</td>
+                <td>{{ latest_measurement.body_fat_pct }}%</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.chest_cm %}
+            <tr>
+                <td>Chest</td>
+                <td>{{ latest_measurement.chest_cm }} cm</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.waist_cm %}
+            <tr>
+                <td>Waist</td>
+                <td>{{ latest_measurement.waist_cm }} cm</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.hips_cm %}
+            <tr>
+                <td>Hips</td>
+                <td>{{ latest_measurement.hips_cm }} cm</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.bicep_cm %}
+            <tr>
+                <td>Bicep</td>
+                <td>{{ latest_measurement.bicep_cm }} cm</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.thigh_cm %}
+            <tr>
+                <td>Thigh</td>
+                <td>{{ latest_measurement.thigh_cm }} cm</td>
+            </tr>
+            {% endif %}
+            {% if latest_measurement.calf_cm %}
+            <tr>
+                <td>Calf</td>
+                <td>{{ latest_measurement.calf_cm }} cm</td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="plan-info">
+        <h3>Plan Description</h3>
+        <p>{{ workout_plan.description|default:"No description provided." }}</p>
+    </div>
+
+    <h3>Weekly Workout Schedule</h3>
+    {% for day in workout_plan.workout_days.all %}
+    <div class="workout-day">
+        <div class="day-header">
+            <h4>{{ day.get_day_of_week_display }}: {{ day.name }}</h4>
+        </div>
+        
+        {% for exercise_set in day.exercise_sets.all %}
+        <div class="exercise">
+            <div class="exercise-header">
+                {{ exercise_set.exercise.name }}
+            </div>
+            <div class="exercise-details">
+                {% if exercise_set.exercise.description %}
+                <p><strong>Description:</strong> {{ exercise_set.exercise.description }}</p>
+                {% endif %}
+                
+                <div class="set-info">
+                    <strong>Sets:</strong> {{ exercise_set.sets }}<br>
+                    {% if exercise_set.set_type == 'reps' %}
+                        <strong>Reps:</strong> {{ exercise_set.reps_or_time }}
+                    {% elif exercise_set.set_type == 'time' %}
+                        <strong>Time:</strong> {{ exercise_set.reps_or_time }} seconds
+                    {% else %}
+                        <strong>Duration:</strong> {{ exercise_set.reps_or_time }} minutes
+                    {% endif %}<br>
+                    <strong>Rest:</strong> {{ exercise_set.rest_seconds }} seconds
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        <p>This workout plan was created by your fitness coach and is personalized for your goals and measurements.</p>
+        <p>For questions or modifications, please contact your coach.</p>
+        <p><strong>Important:</strong> Always warm up before starting your workout and listen to your body.</p>
+    </div>
+</body>
+</html>
