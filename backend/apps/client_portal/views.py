@@ -25,7 +25,7 @@ from .serializers import (
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
-from apps.users.permissions import IsClient
+from apps.common.permissions import IsClient, get_client_from_user
 
 
 class ClientTokenObtainPairView(TokenObtainPairView):
@@ -98,12 +98,11 @@ class ClientDashboardView(APIView):
     permission_classes = [IsAuthenticated, IsClient]
     
     def get(self, request):
-        # Get client from user
-        try:
-            client = Client.objects.get(user=request.user)
-        except Client.DoesNotExist:
+        # Get client from user with guardrails
+        client = get_client_from_user(request.user)
+        if not client:
             return Response({
-                'error': 'Client profile not found'
+                'error': 'Client profile not found. Please contact your coach.'
             }, status=status.HTTP_404_NOT_FOUND)
         
         serializer = ClientDashboardSerializer(client)
@@ -111,16 +110,16 @@ class ClientDashboardView(APIView):
 
 
 class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet for client plan access."""
+    """ViewSet for client plan access (client only, own data only)."""
     permission_classes = [IsAuthenticated, IsClient]
     
     def get_queryset(self):
-        # Get client from user
-        try:
-            client = Client.objects.get(user=self.request.user)
-        except Client.DoesNotExist:
+        # Get client from user with guardrails - NEVER use client_id param
+        client = get_client_from_user(self.request.user)
+        if not client:
             return PlanAssignment.objects.none()
         
+        # Always filter by the client from request.user - ignore any client_id param
         return PlanAssignment.objects.filter(
             client=client,
             is_active=True

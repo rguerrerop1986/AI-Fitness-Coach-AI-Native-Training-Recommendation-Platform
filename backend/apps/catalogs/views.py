@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from apps.common.permissions import IsCoachOrAssistant
 from .models import Food, Exercise
 from .serializers import (
     FoodSerializer, ExerciseSerializer, 
@@ -12,10 +13,10 @@ from .serializers import (
 
 
 class FoodViewSet(viewsets.ModelViewSet):
-    """ViewSet for food catalog management."""
+    """ViewSet for food catalog management (coach only)."""
     queryset = Food.objects.filter(is_active=True)
     serializer_class = FoodSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['tags']
     search_fields = ['name', 'brand']
@@ -45,10 +46,10 @@ class FoodViewSet(viewsets.ModelViewSet):
 
 
 class ExerciseViewSet(viewsets.ModelViewSet):
-    """ViewSet for exercise catalog management."""
+    """ViewSet for exercise catalog management (coach only)."""
     queryset = Exercise.objects.filter(is_active=True)
     serializer_class = ExerciseSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['muscle_group', 'difficulty', 'equipment']
     search_fields = ['name', 'muscle_group', 'equipment']

@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'django_extensions',
     
     # Local apps
+    'apps.common',
     'apps.users',
     'apps.clients',
     'apps.catalogs',

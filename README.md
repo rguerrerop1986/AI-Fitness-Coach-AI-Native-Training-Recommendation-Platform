@@ -213,11 +213,16 @@ The command will:
 - **Diet Plans**: `/api/diet-plans/` (coach only)
 - **Workout Plans**: `/api/workout-plans/` (coach only)
 - **Assignments**: `/api/assignments/` (coach only)
+- **Plan Cycles**: `/api/plan-cycles/` (coach only)
+  - List/Create: `/api/plan-cycles/`
+  - Detail: `/api/plan-cycles/{id}/`
+  - Current cycle: `/api/plan-cycles/current/?client={id}` (coach)
 - **Check-ins**: `/api/checkins/` (coach only)
 - **Reports**: `/api/reports/progress/` (coach only)
 - **Client Portal**: 
   - Dashboard: `/api/client/dashboard/` (client only, returns own data)
   - Plans: `/api/client/plans/` (client only, returns own assignments)
+  - Current Cycle: `/api/client/current-cycle/` (client only, returns active cycle)
 
 ## Testing
 
@@ -267,8 +272,18 @@ pytest --cov=. --cov-report=html
 
 4. **Create user account for the client**:
    ```bash
+   # Basic usage - creates users for all clients without linked accounts
    python manage.py create_client_users
-   # This will create a User account with role='client' and link it to the Client
+   
+   # Dry run to see what would be created
+   python manage.py create_client_users --dry-run
+   
+   # Use a default password for all created users (dev only)
+   python manage.py create_client_users --default-password=SecurePass123
+   
+   # Force recreate users for clients with invalid/missing links
+   python manage.py create_client_users --force
+   
    # Note the username and password printed by the command
    ```
 
@@ -287,9 +302,83 @@ pytest --cov=. --cov-report=html
 - [ ] Client can authenticate via `/api/client/auth/token/`
 - [ ] Client can access ONLY their own plans/measurements/checkins via `/api/client/dashboard/`
 - [ ] Client cannot access other clients' data (returns 403/404)
+- [ ] Client cannot access coach endpoints (returns 403)
 - [ ] Coach can access all clients/plans via `/api/clients/`, `/api/diet-plans/`, etc.
 - [ ] Coach cannot access client portal endpoints (returns 403)
 - [ ] Token refresh works for both coach and client
+- [ ] PlanCycle can be created and linked to assignments
+- [ ] CheckIns auto-link to active PlanCycle
+- [ ] No overlapping active PlanCycles allowed for same client
+
+## PlanCycle Usage
+
+PlanCycle is a period container for organizing plans and tracking data into time-bound cycles (weekly/biweekly/monthly).
+
+### Creating a PlanCycle (Coach)
+
+1. **Create a PlanCycle**:
+   ```bash
+   POST /api/plan-cycles/
+   {
+     "client": 1,
+     "start_date": "2025-01-01",
+     "end_date": "2025-01-08",
+     "cadence": "weekly",
+     "goal": "fat_loss",
+     "status": "active"
+   }
+   ```
+
+2. **Link assignments to cycle**:
+   When creating a PlanAssignment, optionally link it to a PlanCycle:
+   ```bash
+   POST /api/assignments/
+   {
+     "client": 1,
+     "plan_type": "diet",
+     "diet_plan": 1,
+     "start_date": "2025-01-01",
+     "plan_cycle": 1  # Link to PlanCycle
+   }
+   ```
+
+3. **Business Rules**:
+   - Only one ACTIVE PlanCycle per client at a time
+   - Overlapping active cycles are rejected (use DRAFT status to plan ahead)
+   - CheckIns automatically link to the active PlanCycle for the check-in date
+
+### Client View of Current Cycle
+
+Clients can view their current active cycle:
+```bash
+GET /api/client/current-cycle/
+```
+
+Returns:
+- Cycle details (dates, cadence, goal)
+- Linked diet plan summary
+- Linked workout plan summary
+
+### Management Command Options
+
+The `create_client_users` command supports several options:
+
+- `--dry-run`: Preview what would be created without making changes
+- `--default-password=<pwd>`: Set a default password for all created users (dev only)
+- `--force`: Recreate users for clients with invalid/missing user links
+- `--password`: Alias for `--default-password`
+
+**Example**:
+```bash
+# Preview changes
+python manage.py create_client_users --dry-run
+
+# Create users with a default password
+python manage.py create_client_users --default-password=TempPass123
+
+# Fix clients with broken user links
+python manage.py create_client_users --force
+```
 
 ## Project Structure
 

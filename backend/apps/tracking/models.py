@@ -96,6 +96,14 @@ class CheckIn(models.Model):
         blank=True,
         help_text="Workout adherence percentage (0-100)"
     )
+    plan_cycle = models.ForeignKey(
+        'plans.PlanCycle',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='checkins',
+        help_text="Optional link to PlanCycle for period-based tracking"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -125,3 +133,23 @@ class CheckIn(models.Model):
     def has_subjective_data(self):
         """Check if check-in has subjective data (RPE, fatigue)."""
         return self.rpe is not None or self.fatigue is not None
+    
+    def save(self, *args, **kwargs):
+        """Auto-link to active PlanCycle if not set."""
+        if not self.plan_cycle and self.client and self.date:
+            try:
+                from apps.plans.models import PlanCycle
+                active_cycle = PlanCycle.objects.filter(
+                    client=self.client,
+                    status=PlanCycle.Status.ACTIVE,
+                    start_date__lte=self.date,
+                    end_date__gte=self.date
+                ).first()
+                
+                if active_cycle:
+                    self.plan_cycle = active_cycle
+            except Exception:
+                # If PlanCycle doesn't exist yet (during migrations), skip
+                pass
+        
+        super().save(*args, **kwargs)

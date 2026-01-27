@@ -1,14 +1,15 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from apps.common.permissions import IsCoachOrAssistant
 from .models import CheckIn
 from .serializers import CheckInSerializer, CheckInCreateSerializer
 
 
 class CheckInViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing client check-ins.
+    ViewSet for managing client check-ins (coach only).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filterset_fields = ['client', 'date']
     search_fields = ['notes']
     
@@ -39,9 +40,9 @@ class CheckInViewSet(viewsets.ModelViewSet):
 
 class ReportViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet for generating reports.
+    ViewSet for generating reports (coach only).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     
     def get_queryset(self):
         # This will be implemented later with actual report logic

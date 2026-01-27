@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from apps.common.permissions import IsCoachOrAssistant
 from .models import Client, Measurement
 from .serializers import (
     ClientSerializer, ClientCreateSerializer, 
@@ -12,10 +13,10 @@ from .serializers import (
 
 
 class ClientViewSet(viewsets.ModelViewSet):
-    """ViewSet for client management."""
+    """ViewSet for client management (coach only)."""
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['is_active', 'sex']
     search_fields = ['first_name', 'last_name', 'email']
@@ -59,9 +60,9 @@ class ClientViewSet(viewsets.ModelViewSet):
 
 
 class MeasurementViewSet(viewsets.ModelViewSet):
-    """ViewSet for client measurements."""
+    """ViewSet for client measurements (coach only)."""
     serializer_class = MeasurementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['date']
     ordering_fields = ['date', 'weight_kg']

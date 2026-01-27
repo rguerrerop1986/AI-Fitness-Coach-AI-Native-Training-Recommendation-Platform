@@ -1,10 +1,129 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from apps.clients.models import Client
 from apps.catalogs.models import Food, Exercise
 
 User = get_user_model()
+
+
+class PlanCycle(models.Model):
+    """
+    Period container for plans and tracking.
+    Represents a time-bound cycle (weekly/biweekly/monthly) for a client's fitness journey.
+    """
+    
+    class Cadence(models.TextChoices):
+        WEEKLY = 'weekly', 'Weekly'
+        BIWEEKLY = 'biweekly', 'Biweekly'
+        MONTHLY = 'monthly', 'Monthly'
+    
+    class Goal(models.TextChoices):
+        FAT_LOSS = 'fat_loss', 'Fat Loss'
+        RECOMP = 'recomp', 'Recomposition'
+        MUSCLE_GAIN = 'muscle_gain', 'Muscle Gain'
+        MAINTENANCE = 'maintenance', 'Maintenance'
+    
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        ACTIVE = 'active', 'Active'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+    
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='plan_cycles'
+    )
+    coach = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_plan_cycles',
+        limit_choices_to={'role': 'coach'}
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    cadence = models.CharField(
+        max_length=10,
+        choices=Cadence.choices,
+        default=Cadence.WEEKLY
+    )
+    goal = models.CharField(
+        max_length=15,
+        choices=Goal.choices,
+        null=True,
+        blank=True
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.DRAFT
+    )
+    notes = models.TextField(blank=True, help_text="Internal notes for the coach")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'plan_cycles'
+        ordering = ['-start_date', '-created_at']
+        indexes = [
+            models.Index(fields=['client', 'status']),
+            models.Index(fields=['client', 'start_date', 'end_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.client.full_name} - {self.get_cadence_display()} Cycle ({self.start_date} to {self.end_date})"
+    
+    def clean(self):
+        """Validate business rules."""
+        errors = {}
+        
+        # End date must be after start date
+        if self.end_date and self.start_date and self.end_date <= self.start_date:
+            errors['end_date'] = 'End date must be after start date.'
+        
+        # Check for overlapping ACTIVE cycles for the same client
+        if self.status == self.Status.ACTIVE and self.pk is None:  # New instance
+            from django.db.models import Q
+            overlapping = PlanCycle.objects.filter(
+                client=self.client,
+                status=self.Status.ACTIVE
+            ).filter(
+                Q(start_date__lte=self.end_date) & Q(end_date__gte=self.start_date)
+            )
+            
+            if overlapping.exists():
+                errors['status'] = (
+                    f'Cannot create active cycle: client already has an active cycle '
+                    f'({overlapping.first().start_date} to {overlapping.first().end_date}). '
+                    f'Complete or cancel the existing cycle first.'
+                )
+        
+        if errors:
+            raise ValidationError(errors)
+    
+    def save(self, *args, **kwargs):
+        """Override save to run validation."""
+        self.clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_active(self):
+        """Check if cycle is currently active."""
+        from django.utils import timezone
+        today = timezone.now().date()
+        return (
+            self.status == self.Status.ACTIVE and
+            self.start_date <= today <= self.end_date
+        )
+    
+    @property
+    def duration_days(self):
+        """Calculate duration in days."""
+        if self.end_date and self.start_date:
+            return (self.end_date - self.start_date).days + 1
+        return 0
 
 
 class DietPlan(models.Model):
@@ -264,6 +383,14 @@ class PlanAssignment(models.Model):
     end_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     assigned_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    plan_cycle = models.ForeignKey(
+        PlanCycle,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assignments',
+        help_text="Optional link to PlanCycle for period-based tracking"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

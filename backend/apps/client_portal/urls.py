@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
+from apps.plans.views import ClientCurrentCycleView
 from .views import (
     ClientTokenObtainPairView, ClientDashboardView, ClientPlanViewSet,
     ClientSubscriptionViewSet
@@ -17,5 +18,6 @@ urlpatterns = [
     # Legacy endpoint (deprecated, kept for backwards compatibility during migration)
     path('auth/login/', ClientTokenObtainPairView.as_view(), name='client-login'),
     path('dashboard/', ClientDashboardView.as_view(), name='client-dashboard'),
+    path('current-cycle/', ClientCurrentCycleView.as_view(), name='client-current-cycle'),
     path('', include(router.urls)),
 ]

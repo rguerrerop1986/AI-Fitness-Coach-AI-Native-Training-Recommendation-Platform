@@ -264,3 +264,32 @@ class ClientPortalAPITest(APITestCase):
         log_entry = ClientAccessLog.objects.latest('created_at')
         self.assertEqual(log_entry.client, self.client_obj)
         self.assertEqual(log_entry.action, 'login')
+    
+    def test_coach_cannot_access_client_portal_endpoints(self):
+        """Test that coach cannot access client portal endpoints."""
+        self.client.force_authenticate(user=self.coach)
+        
+        # Try to access client dashboard
+        url = reverse('client-dashboard')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Try to access client plans
+        url = reverse('client-plan-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_client_cannot_access_coach_endpoints(self):
+        """Test that client cannot access coach endpoints."""
+        self.client.force_authenticate(user=self.client_user)
+        
+        # Try to access clients list
+        from django.urls import reverse as django_reverse
+        url = django_reverse('client-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Try to access diet plans
+        url = django_reverse('dietplan-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
