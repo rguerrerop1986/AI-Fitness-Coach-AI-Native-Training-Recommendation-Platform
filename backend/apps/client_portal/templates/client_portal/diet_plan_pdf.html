@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ diet_plan.title }} - Diet Plan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .client-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .plan-info {
+            margin-bottom: 30px;
+        }
+        .nutrition-summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .meal {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        .meal-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .food-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .food-item:last-child {
+            border-bottom: none;
+        }
+        .nutrition-values {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ diet_plan.title }}</h1>
+        <p><strong>Goal:</strong> {{ diet_plan.get_goal_display }}</p>
+        <p><strong>Daily Calories:</strong> {{ diet_plan.daily_calories }} kcal</p>
+        <p><strong>Version:</strong> {{ diet_plan.version }}</p>
+        <p><strong>Generated:</strong> {{ generated_date }}</p>
+    </div>
+
+    <div class="client-info">
+        <h3>Client Information</h3>
+        <p><strong>Name:</strong> {{ client.full_name }}</p>
+        <p><strong>Email:</strong> {{ client.email }}</p>
+        <p><strong>Height:</strong> {{ client.height_cm }} cm</p>
+        {% if latest_measurement %}
+        <p><strong>Current Weight:</strong> {{ latest_measurement.weight_kg }} kg</p>
+        <p><strong>Body Fat %:</strong> {{ latest_measurement.body_fat_pct|default:"Not measured" }}</p>
+        {% endif %}
+    </div>
+
+    <div class="plan-info">
+        <h3>Plan Description</h3>
+        <p>{{ diet_plan.description|default:"No description provided." }}</p>
+    </div>
+
+    <div class="nutrition-summary">
+        <h3>Macronutrient Distribution</h3>
+        <table>
+            <tr>
+                <th>Macronutrient</th>
+                <th>Percentage</th>
+                <th>Daily Target</th>
+            </tr>
+            <tr>
+                <td>Protein</td>
+                <td>{{ diet_plan.protein_pct }}%</td>
+                <td>{{ diet_plan.daily_calories|multiply:diet_plan.protein_pct|divide:100|divide:4|floatformat:1 }}g</td>
+            </tr>
+            <tr>
+                <td>Carbohydrates</td>
+                <td>{{ diet_plan.carbs_pct }}%</td>
+                <td>{{ diet_plan.daily_calories|multiply:diet_plan.carbs_pct|divide:100|divide:4|floatformat:1 }}g</td>
+            </tr>
+            <tr>
+                <td>Fat</td>
+                <td>{{ diet_plan.fat_pct }}%</td>
+                <td>{{ diet_plan.daily_calories|multiply:diet_plan.fat_pct|divide:100|divide:9|floatformat:1 }}g</td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Daily Meal Plan</h3>
+    {% for meal in diet_plan.meals.all %}
+    <div class="meal">
+        <div class="meal-header">
+            <h4>{{ meal.get_meal_type_display }}: {{ meal.name }}</h4>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Food Item</th>
+                    <th>Quantity</th>
+                    <th>Calories</th>
+                    <th>Protein (g)</th>
+                    <th>Carbs (g)</th>
+                    <th>Fat (g)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in meal.items.all %}
+                <tr>
+                    <td>{{ item.food.name }}</td>
+                    <td>{{ item.quantity }} {{ item.food.unit }}</td>
+                    <td>{{ item.total_calories|floatformat:1 }}</td>
+                    <td>{{ item.total_protein|floatformat:1 }}</td>
+                    <td>{{ item.total_carbs|floatformat:1 }}</td>
+                    <td>{{ item.total_fat|floatformat:1 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        <p>This diet plan was created by your fitness coach and is personalized for your goals and measurements.</p>
+        <p>For questions or modifications, please contact your coach.</p>
+    </div>
+</body>
+</html>

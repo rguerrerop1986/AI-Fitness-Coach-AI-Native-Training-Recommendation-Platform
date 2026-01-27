@@ -1,93 +1,215 @@
-# Fitness-coach-app
 
+# Fitness Coach App
 
+A comprehensive web application for fitness & nutrition coaches to manage clients, assign diet and workout plans, and track progress.
 
-## Getting started
+## Features
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **Client Management**: CRUD operations for clients with body measurements tracking
+- **Catalogs**: Food and exercise databases with nutritional and workout information
+- **Plans & Assignments**: Diet and workout plan creation with client assignment
+- **Progress Tracking**: Weekly check-ins with trend analysis and charts
+- **Notifications**: Email reminders for check-ins
+- **Reports**: Dashboard with client progress and adherence metrics
+- **Client Portal**: Secure client access to assigned plans with PDF download capability
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Tech Stack
 
-## Add your files
+- **Backend**: Python 3.12, Django 5, Django REST Framework
+- **Authentication**: Django auth + JWT (djangorestframework-simplejwt)
+- **Database**: PostgreSQL
+- **Frontend**: React + TypeScript + Vite, TailwindCSS, React Router
+- **Packaging**: Docker + docker-compose, Poetry
+- **Testing**: Pytest + DRF test client, React Testing Library
+- **Documentation**: OpenAPI/Swagger via drf-spectacular
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js 18+ (for local development)
+
+### Running with Docker
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd fitness-coach-app-v1
+```
+
+2. Start the application:
+```bash
+docker-compose up --build
+```
+
+3. Access the applications:
+- Backend API: http://localhost:8000
+- Frontend (Coach Portal): http://localhost:5173
+- Client Portal: http://localhost:5173/client/login
+- API Documentation: http://localhost:8000/api/docs/
+
+### Demo Credentials
+
+- **Coach Login**: 
+  - Username: `coach`
+  - Password: `demo123`
+- **Assistant Login**:
+  - Username: `assistant`
+  - Password: `demo123`
+- **Client Portal**:
+  - John Doe: Username `john_doe`, Password `client123`
+  - Jane Smith: Username `jane_smith`, Password `client456`
+
+## Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+# Django Settings
+SECRET_KEY=your-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database
+DATABASE_URL=postgresql://postgres:postgres@db:5432/fitness_coach
+
+# Email (for notifications)
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+EMAIL_HOST=localhost
+EMAIL_PORT=587
+EMAIL_USE_TLS=False
+
+# JWT Settings
+JWT_ACCESS_TOKEN_LIFETIME=5
+JWT_REFRESH_TOKEN_LIFETIME=1
+```
+
+## Local Development
+
+### Backend Setup
+
+1. Navigate to the backend directory:
+```bash
+cd backend
+```
+
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+poetry install
+# or
+pip install -r requirements.txt
+```
+
+4. Run migrations:
+```bash
+python manage.py migrate
+```
+
+5. Create a superuser:
+```bash
+python manage.py createsuperuser
+```
+
+6. Load seed data and setup client portal:
+```bash
+python manage.py loaddata seed_data
+python setup_client_portal.py
+```
+
+7. Run the development server:
+```bash
+python manage.py runserver
+```
+
+### Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm run dev
+```
+
+## API Endpoints
+
+- **Authentication**: `/api/auth/jwt/`
+- **Clients**: `/api/clients/`
+- **Measurements**: `/api/clients/{id}/measurements/`
+- **Foods**: `/api/foods/`
+- **Exercises**: `/api/exercises/`
+- **Diet Plans**: `/api/diet-plans/`
+- **Workout Plans**: `/api/workout-plans/`
+- **Assignments**: `/api/assignments/`
+- **Check-ins**: `/api/checkins/`
+- **Reports**: `/api/reports/progress/`
+- **Client Portal**: `/api/client/`
+  - Authentication: `/api/client/auth/login/`
+  - Dashboard: `/api/client/dashboard/`
+  - Plans: `/api/client/plans/`
+
+## Testing
+
+### Backend Tests
+```bash
+cd backend
+pytest
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+### Coverage Report
+```bash
+cd backend
+pytest --cov=. --cov-report=html
+```
+
+## Project Structure
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/linkcode/fitness-coach-app.git
-git branch -M main
-git push -uf origin main
+fitness-coach-app-v1/
+├── backend/                 # Django backend
+│   ├── fitness_coach/      # Main Django project
+│   ├── apps/              # Django applications
+│   ├── requirements.txt    # Python dependencies
+│   └── manage.py
+├── frontend/               # React frontend
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.ts
+├── docker-compose.yml      # Docker orchestration
+├── .github/               # CI/CD workflows
+└── README.md
 ```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/linkcode/fitness-coach-app/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT License
+=======
+# Fitness-coach-app
