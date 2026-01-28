@@ -9,6 +9,7 @@ A comprehensive web application for fitness & nutrition coaches to manage client
 - **Catalogs**: Food and exercise databases with nutritional and workout information
 - **Plans & Assignments**: Diet and workout plan creation with client assignment
 - **Progress Tracking**: Weekly check-ins with trend analysis and charts
+- **Appointments & Payments**: Schedule consultations with pay-per-consultation monetization
 - **Notifications**: Email reminders for check-ins
 - **Reports**: Dashboard with client progress and adherence metrics
 - **Client Portal**: Secure client access to assigned plans with PDF download capability
@@ -230,6 +231,97 @@ All authentication uses Django User accounts with SimpleJWT tokens:
   - Dashboard: `/api/client/dashboard/` (returns own data, inferred from token)
   - Plans: `/api/client/plans/` (returns own assignments only)
   - Current Cycle: `/api/client/current-cycle/` (returns active cycle)
+  - Appointments: `/api/client/me/appointments/` (returns own appointments, separated into upcoming/past)
+- **Appointments** (coach only - full CRUD):
+  - List/Create: `/api/appointments/`
+  - Detail/Update: `/api/appointments/{id}/`
+  - Mark Completed: `/api/appointments/{id}/mark_completed/`
+  - Mark Paid: `/api/appointments/{id}/mark_paid/` (requires payment_method in body)
+  - Cancel: `/api/appointments/{id}/cancel/`
+  - Filter by client: `/api/appointments/?client={id}`
+
+## Appointments & Pay-Per-Consultation
+
+The app supports appointment scheduling with pay-per-consultation monetization. This is a simple MVP implementation that tracks payments manually (no payment gateway integration yet).
+
+### Features
+
+- **Coach can**:
+  - Create appointments with client, date/time, duration, and price
+  - Mark appointments as completed after the consultation
+  - Mark appointments as paid (only after completion)
+  - Cancel appointments
+  - View all appointments with filtering by client
+
+- **Client can**:
+  - View their own appointments (read-only)
+  - See upcoming and past appointments separately
+  - View payment status for each appointment
+
+### Business Rules
+
+1. **Payment Status**:
+   - New appointments default to `UNPAID`
+   - Only `COMPLETED` appointments can be marked as `PAID`
+   - When marking as paid, a payment method must be specified (cash, transfer, card, other)
+
+2. **Appointment Status**:
+   - `SCHEDULED`: Initial status for new appointments
+   - `COMPLETED`: Consultation has taken place
+   - `CANCELLED`: Appointment was cancelled
+   - `NO_SHOW`: Client did not attend
+
+3. **Permissions**:
+   - Clients can only view their own appointments
+   - Clients cannot modify appointments, status, or payment information
+   - Coaches have full CRUD access to all appointments
+
+### Usage Example
+
+**Coach creates an appointment**:
+```bash
+POST /api/appointments/
+{
+  "client": 1,
+  "scheduled_at": "2026-02-15T10:00:00Z",
+  "duration_minutes": 60,
+  "price": "500.00",
+  "currency": "MXN",
+  "notes": "Initial consultation"
+}
+```
+
+**After consultation, coach marks as completed**:
+```bash
+PATCH /api/appointments/1/mark_completed/
+```
+
+**Coach records payment**:
+```bash
+PATCH /api/appointments/1/mark_paid/
+{
+  "payment_method": "cash"
+}
+```
+
+**Client views their appointments**:
+```bash
+GET /api/client/me/appointments/
+# Returns:
+{
+  "all": [...],
+  "upcoming": [...],
+  "past": [...]
+}
+```
+
+### Payment Tracking
+
+Currently, payment tracking is manual:
+- Coach marks appointment as `PAID` after receiving payment
+- Payment method is recorded (cash, transfer, card, other)
+- `paid_at` timestamp is automatically set when marking as paid
+- No payment gateway integration (ready for future Stripe integration)
 
 ## Testing
 

@@ -10,7 +10,8 @@ import {
   FileText,
   LogOut,
   Menu,
-  X
+  X,
+  Clock
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -28,6 +29,7 @@ export default function Layout() {
     { name: t('navigation.exercises'), href: '/exercises', icon: Dumbbell },
     { name: t('navigation.plans'), href: '/plans', icon: Calendar },
     { name: t('navigation.checkIns'), href: '/checkins', icon: FileText },
+    { name: 'Appointments', href: '/appointments', icon: Clock },
   ]
 
   const handleLogout = () => {

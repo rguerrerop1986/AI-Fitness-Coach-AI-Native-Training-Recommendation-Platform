@@ -10,7 +10,8 @@ import {
   LogOut,
   Calendar,
   Scale,
-  Target
+  Target,
+  Clock
 } from 'lucide-react'
 import { api } from '../lib/api'
 
@@ -154,13 +155,22 @@ export default function ClientDashboard() {
                 <p className="text-gray-600">Your personalized fitness dashboard</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Logout
-            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/client/appointments')}
+                className="flex items-center text-gray-600 hover:text-gray-900"
+              >
+                <Clock className="h-5 w-5 mr-2" />
+                Appointments
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center text-gray-600 hover:text-gray-900"
+              >
+                <LogOut className="h-5 w-5 mr-2" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>

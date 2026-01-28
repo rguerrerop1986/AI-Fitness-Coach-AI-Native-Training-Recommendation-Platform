@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/', include('apps.catalogs.urls')),
     path('api/', include('apps.plans.urls')),
     path('api/', include('apps.tracking.urls')),
+    path('api/', include('apps.appointments.urls')),
     path('api/client/', include('apps.client_portal.urls')),
     
     # API Documentation

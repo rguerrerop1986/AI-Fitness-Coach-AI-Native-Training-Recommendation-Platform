@@ -11,9 +11,11 @@ import Foods from './pages/Foods'
 import Exercises from './pages/Exercises'
 import Plans from './pages/Plans'
 import CheckIns from './pages/CheckIns'
+import Appointments from './pages/Appointments'
 import Layout from './components/Layout'
 import ClientLogin from './pages/ClientLogin'
 import ClientDashboard from './pages/ClientDashboard'
+import ClientAppointments from './pages/ClientAppointments'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -71,6 +73,7 @@ function AppRoutes() {
         <Route path="exercises" element={<Exercises />} />
         <Route path="plans" element={<Plans />} />
         <Route path="checkins" element={<CheckIns />} />
+        <Route path="appointments" element={<Appointments />} />
       </Route>
 
       {/* Client Portal Routes */}
@@ -78,6 +81,11 @@ function AppRoutes() {
       <Route path="/client/dashboard" element={
         <ClientProtectedRoute>
           <ClientDashboard />
+        </ClientProtectedRoute>
+      } />
+      <Route path="/client/appointments" element={
+        <ClientProtectedRoute>
+          <ClientAppointments />
         </ClientProtectedRoute>
       } />
     </Routes>
