@@ -61,6 +61,12 @@ class PlanCycle(models.Model):
         default=Status.DRAFT
     )
     notes = models.TextField(blank=True, help_text="Internal notes for the coach")
+    plan_pdf = models.FileField(
+        upload_to='plan_pdfs/',
+        null=True,
+        blank=True,
+        help_text="Generated PDF of the complete plan"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -134,27 +140,43 @@ class DietPlan(models.Model):
         BULK = 'bulk', 'Bulk (Muscle Gain)'
         MAINTAIN = 'maintain', 'Maintain'
     
-    title = models.CharField(max_length=200)
+    plan_cycle = models.OneToOneField(
+        PlanCycle,
+        on_delete=models.CASCADE,
+        related_name='diet_plan',
+        null=True,
+        blank=True,
+        help_text="Link to PlanCycle (one diet plan per cycle)"
+    )
+    title = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
-    goal = models.CharField(max_length=10, choices=Goal.choices)
+    goal = models.CharField(max_length=10, choices=Goal.choices, blank=True)
     daily_calories = models.IntegerField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1000), MaxValueValidator(5000)]
     )
     protein_pct = models.DecimalField(
         max_digits=4, 
         decimal_places=1,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(10), MaxValueValidator(50)],
         help_text="Protein percentage of total calories"
     )
     carbs_pct = models.DecimalField(
         max_digits=4, 
         decimal_places=1,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(20), MaxValueValidator(70)],
         help_text="Carbohydrates percentage of total calories"
     )
     fat_pct = models.DecimalField(
         max_digits=4, 
         decimal_places=1,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(10), MaxValueValidator(50)],
         help_text="Fat percentage of total calories"
     )
@@ -170,15 +192,18 @@ class DietPlan(models.Model):
         unique_together = ['title', 'version']
     
     def __str__(self):
-        return f"{self.title} v{self.version} ({self.get_goal_display()})"
+        if self.plan_cycle:
+            return f"Diet Plan for {self.plan_cycle.client.full_name} ({self.plan_cycle.start_date} to {self.plan_cycle.end_date})"
+        return f"{self.title} v{self.version} ({self.get_goal_display() if self.goal else 'N/A'})"
     
     def save(self, *args, **kwargs):
         if not self.pk:  # New instance
-            # Get the highest version for this title
-            max_version = DietPlan.objects.filter(title=self.title).aggregate(
-                models.Max('version')
-            )['version__max'] or 0
-            self.version = max_version + 1
+            if self.title:
+                # Get the highest version for this title
+                max_version = DietPlan.objects.filter(title=self.title).aggregate(
+                    models.Max('version')
+                )['version__max'] or 0
+                self.version = max_version + 1
         super().save(*args, **kwargs)
 
 
@@ -186,9 +211,10 @@ class Meal(models.Model):
     """Meal model within a diet plan."""
     
     class MealType(models.TextChoices):
-        BREAKFAST = 'breakfast', 'Breakfast'
-        LUNCH = 'lunch', 'Lunch'
-        DINNER = 'dinner', 'Dinner'
+        BREAKFAST = 'breakfast', 'Desayuno'
+        PRE_WORKOUT = 'pre_workout', 'Pre-entreno'
+        POST_WORKOUT = 'post_workout', 'Post-entreno'
+        DINNER = 'dinner', 'Cena'
         SNACK = 'snack', 'Snack'
     
     diet_plan = models.ForeignKey(
@@ -196,17 +222,22 @@ class Meal(models.Model):
         on_delete=models.CASCADE, 
         related_name='meals'
     )
-    meal_type = models.CharField(max_length=10, choices=MealType.choices)
-    name = models.CharField(max_length=100)
+    meal_type = models.CharField(max_length=15, choices=MealType.choices)
+    name = models.CharField(max_length=100, blank=True)
+    description = models.TextField(
+        blank=True,
+        help_text="Free-text meal description (e.g., 'pan tostado con aguacate...')"
+    )
     order = models.PositiveIntegerField(default=0)
     
     class Meta:
         db_table = 'meals'
-        ordering = ['order']
+        ordering = ['order', 'meal_type']
         unique_together = ['diet_plan', 'meal_type', 'order']
     
     def __str__(self):
-        return f"{self.diet_plan.title} - {self.get_meal_type_display()}: {self.name}"
+        plan_name = self.diet_plan.title or f"Plan {self.diet_plan.id}"
+        return f"{plan_name} - {self.get_meal_type_display()}: {self.name or self.description[:50]}"
 
 
 class MealItem(models.Model):
@@ -260,8 +291,16 @@ class WorkoutPlan(models.Model):
         WEIGHT_LOSS = 'weight_loss', 'Weight Loss'
         GENERAL = 'general', 'General Fitness'
     
-    title = models.CharField(max_length=200)
-    goal = models.CharField(max_length=15, choices=Goal.choices)
+    plan_cycle = models.OneToOneField(
+        PlanCycle,
+        on_delete=models.CASCADE,
+        related_name='workout_plan',
+        null=True,
+        blank=True,
+        help_text="Link to PlanCycle (one workout plan per cycle)"
+    )
+    title = models.CharField(max_length=200, blank=True)
+    goal = models.CharField(max_length=15, choices=Goal.choices, blank=True)
     description = models.TextField(blank=True)
     version = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
@@ -275,15 +314,18 @@ class WorkoutPlan(models.Model):
         unique_together = ['title', 'version']
     
     def __str__(self):
-        return f"{self.title} v{self.version} ({self.get_goal_display()})"
+        if self.plan_cycle:
+            return f"Workout Plan for {self.plan_cycle.client.full_name} ({self.plan_cycle.start_date} to {self.plan_cycle.end_date})"
+        return f"{self.title} v{self.version} ({self.get_goal_display() if self.goal else 'N/A'})"
     
     def save(self, *args, **kwargs):
         if not self.pk:  # New instance
-            # Get the highest version for this title
-            max_version = WorkoutPlan.objects.filter(title=self.title).aggregate(
-                models.Max('version')
-            )['version__max'] or 0
-            self.version = max_version + 1
+            if self.title:
+                # Get the highest version for this title
+                max_version = WorkoutPlan.objects.filter(title=self.title).aggregate(
+                    models.Max('version')
+                )['version__max'] or 0
+                self.version = max_version + 1
         super().save(*args, **kwargs)
 
 

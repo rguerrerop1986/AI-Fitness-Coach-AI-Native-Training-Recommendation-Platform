@@ -19,9 +19,10 @@ from .serializers import (
     ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer
 )
 from apps.clients.models import Client
-from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
-from apps.plans.serializers import PlanAssignmentSerializer
+from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
+from apps.plans.serializers import PlanAssignmentSerializer, ClientPlanCycleSerializer
 from apps.common.permissions import IsClient, get_client_from_user
+from django.http import FileResponse
 
 
 class ClientDashboardView(APIView):
@@ -38,6 +39,76 @@ class ClientDashboardView(APIView):
         
         serializer = ClientDashboardSerializer(client)
         return Response(serializer.data)
+
+
+class ClientCurrentPlanView(APIView):
+    """API view for clients to view their current plan (diet + workout)."""
+    permission_classes = [IsAuthenticated, IsClient]
+    
+    def get(self, request):
+        """Return current active cycle with full plan data."""
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found. Please contact your coach.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        cycle = PlanCycle.objects.filter(
+            client=client,
+            status=PlanCycle.Status.ACTIVE
+        ).first()
+        
+        if not cycle:
+            return Response(
+                {'error': 'No active cycle found. Contact your coach.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = ClientPlanCycleSerializer(cycle)
+        return Response(serializer.data)
+
+
+class ClientPlanPDFView(APIView):
+    """API view for clients to download their plan PDF."""
+    permission_classes = [IsAuthenticated, IsClient]
+    
+    def get(self, request):
+        """Download PDF for client's current active cycle."""
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        cycle = PlanCycle.objects.filter(
+            client=client,
+            status=PlanCycle.Status.ACTIVE
+        ).first()
+        
+        if not cycle:
+            return Response(
+                {'error': 'No active cycle found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if not cycle.plan_pdf:
+            return Response(
+                {'error': 'PDF not generated yet. Contact your coach to generate it.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
+            response = FileResponse(cycle.plan_pdf.open('rb'), content_type='application/pdf')
+            filename = cycle.plan_pdf.name.split('/')[-1]
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to download PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):

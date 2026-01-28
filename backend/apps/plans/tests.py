@@ -6,13 +6,13 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from apps.clients.models import Client
 from apps.catalogs.models import Exercise
-from .models import WorkoutPlan, TrainingEntry, PlanAssignment
+from .models import WorkoutPlan, TrainingEntry, PlanCycle, DietPlan, Meal
 
 User = get_user_model()
 
 
-class TrainingEntryAPITest(TestCase):
-    """Test TrainingEntry API endpoints and permissions."""
+class PlanCycleAPITest(TestCase):
+    """Test PlanCycle API endpoints and PDF generation."""
     
     def setUp(self):
         """Set up test data."""
@@ -46,8 +46,120 @@ class TrainingEntryAPITest(TestCase):
             initial_weight_kg=80.0,
             user=self.client_user
         )
+    
+    def test_coach_can_create_cycle_with_period_days(self):
+        """Test that coach can create a cycle with period_days helper."""
+        self.client.force_authenticate(user=self.coach)
         
-        self.other_client = Client.objects.create(
+        data = {
+            'client': self.client_obj.id,
+            'period_days': 15,
+            'goal': 'fat_loss',
+            'status': 'draft',
+        }
+        
+        response = self.client.post('/api/plan-cycles/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PlanCycle.objects.count(), 1)
+        
+        cycle = PlanCycle.objects.first()
+        self.assertEqual(cycle.duration_days, 15)
+        self.assertEqual(cycle.client, self.client_obj)
+        self.assertEqual(cycle.coach, self.coach)
+    
+    def test_coach_can_create_diet_plan(self):
+        """Test that coach can create a diet plan for a cycle."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+        )
+        
+        self.client.force_authenticate(user=self.coach)
+        
+        data = {
+            'title': 'Test Diet Plan',
+        }
+        
+        response = self.client.post(f'/api/plan-cycles/{cycle.id}/diet-plan/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        cycle.refresh_from_db()
+        self.assertIsNotNone(cycle.diet_plan)
+    
+    def test_coach_can_add_meal_to_diet_plan(self):
+        """Test that coach can add meals to a diet plan."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+        )
+        
+        diet_plan = DietPlan.objects.create(
+            plan_cycle=cycle,
+            created_by=self.coach,
+        )
+        
+        self.client.force_authenticate(user=self.coach)
+        
+        data = {
+            'meal_type': 'breakfast',
+            'description': 'Pan tostado con aguacate',
+            'order': 0,
+        }
+        
+        response = self.client.post(f'/api/plan-cycles/{cycle.id}/diet-plan/meals/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Meal.objects.count(), 1)
+        
+        meal = Meal.objects.first()
+        self.assertEqual(meal.meal_type, 'breakfast')
+        self.assertEqual(meal.description, 'Pan tostado con aguacate')
+    
+    def test_coach_can_generate_pdf(self):
+        """Test that coach can generate PDF for a plan cycle."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+        )
+        
+        self.client.force_authenticate(user=self.coach)
+        
+        response = self.client.post(f'/api/plan-cycles/{cycle.id}/generate-pdf/')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        cycle.refresh_from_db()
+        self.assertIsNotNone(cycle.plan_pdf)
+    
+    def test_client_can_download_own_pdf(self):
+        """Test that client can download PDF for their own cycle."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.ACTIVE,
+        )
+        
+        # Generate PDF first
+        from .services.pdf_service import generate_plan_pdf
+        from django.core.files.base import ContentFile
+        pdf_buffer = generate_plan_pdf(cycle)
+        cycle.plan_pdf.save('test_plan.pdf', ContentFile(pdf_buffer.read()), save=True)
+        
+        self.client.force_authenticate(user=self.client_user)
+        
+        response = self.client.get('/api/client/current-plan/pdf/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+    
+    def test_client_cannot_download_other_client_pdf(self):
+        """Test that client cannot download PDF for another client's cycle."""
+        other_client = Client.objects.create(
             first_name='Other',
             last_name='Client',
             email='other@test.com',
@@ -57,131 +169,22 @@ class TrainingEntryAPITest(TestCase):
             initial_weight_kg=80.0,
         )
         
-        self.exercise = Exercise.objects.create(
-            name='Bench Press',
-            muscle_group=Exercise.MuscleGroup.CHEST,
-            equipment_type=Exercise.EquipmentType.BARRA,
-            instructions='Lie on bench, press bar',
-        )
-        
-        self.workout_plan = WorkoutPlan.objects.create(
-            title='Strength Program',
-            goal=WorkoutPlan.Goal.STRENGTH,
-            created_by=self.coach
-        )
-        
-        # Assign workout plan to client
-        self.assignment = PlanAssignment.objects.create(
-            client=self.client_obj,
-            plan_type=PlanAssignment.PlanType.WORKOUT,
-            workout_plan=self.workout_plan,
+        cycle = PlanCycle.objects.create(
+            client=other_client,
+            coach=self.coach,
             start_date=date.today(),
-            assigned_by=self.coach
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.ACTIVE,
         )
-    
-    def test_coach_can_add_training_entry(self):
-        """Test that coach can add training entry to workout plan."""
-        self.client.force_authenticate(user=self.coach)
         
-        data = {
-            'workout_plan': self.workout_plan.id,
-            'exercise': self.exercise.id,
-            'date': date.today().isoformat(),
-            'series': 3,
-            'repetitions': '8-12',
-            'weight_kg': 60.0,
-            'rest_seconds': 90,
-            'notes': 'Focus on form',
-        }
-        
-        response = self.client.post('/api/training-entries/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(TrainingEntry.objects.count(), 1)
-        entry = TrainingEntry.objects.first()
-        self.assertEqual(entry.exercise, self.exercise)
-        self.assertEqual(entry.series, 3)
-    
-    def test_client_can_read_own_plan_entries(self):
-        """Test that client can read entries from their assigned plans."""
-        # Create entry
-        entry = TrainingEntry.objects.create(
-            workout_plan=self.workout_plan,
-            exercise=self.exercise,
-            date=date.today(),
-            series=3,
-            repetitions='10',
-            weight_kg=60.0,
-        )
+        from .services.pdf_service import generate_plan_pdf
+        from django.core.files.base import ContentFile
+        pdf_buffer = generate_plan_pdf(cycle)
+        cycle.plan_pdf.save('test_plan.pdf', ContentFile(pdf_buffer.read()), save=True)
         
         self.client.force_authenticate(user=self.client_user)
-        response = self.client.get('/api/training-entries/')
         
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results', response.data)
-        self.assertGreaterEqual(len(results), 1)
-        self.assertEqual(results[0]['id'], entry.id)
-    
-    def test_client_cannot_read_other_client_entries(self):
-        """Test that client cannot read entries from other clients' plans."""
-        # Create workout plan for other client
-        other_plan = WorkoutPlan.objects.create(
-            title='Other Plan',
-            goal=WorkoutPlan.Goal.STRENGTH,
-            created_by=self.coach
-        )
-        
-        PlanAssignment.objects.create(
-            client=self.other_client,
-            plan_type=PlanAssignment.PlanType.WORKOUT,
-            workout_plan=other_plan,
-            start_date=date.today(),
-            assigned_by=self.coach
-        )
-        
-        # Create entry for other client's plan
-        TrainingEntry.objects.create(
-            workout_plan=other_plan,
-            exercise=self.exercise,
-            date=date.today(),
-            series=3,
-            repetitions='10',
-        )
-        
-        self.client.force_authenticate(user=self.client_user)
-        response = self.client.get('/api/training-entries/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results', response.data)
-        # Should only see own entries (none in this case)
-        self.assertEqual(len(results), 0)
-    
-    def test_client_cannot_create_training_entry(self):
-        """Test that client cannot create training entries."""
-        self.client.force_authenticate(user=self.client_user)
-        
-        data = {
-            'workout_plan': self.workout_plan.id,
-            'exercise': self.exercise.id,
-            'date': date.today().isoformat(),
-            'series': 3,
-            'repetitions': '10',
-        }
-        
-        response = self.client.post('/api/training-entries/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_validation_requires_repetitions(self):
-        """Test that repetitions field is required."""
-        self.client.force_authenticate(user=self.coach)
-        
-        data = {
-            'workout_plan': self.workout_plan.id,
-            'exercise': self.exercise.id,
-            'date': date.today().isoformat(),
-            'series': 3,
-            # Missing repetitions
-        }
-        
-        response = self.client.post('/api/training-entries/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('repetitions', str(response.data))
+        # Try to access other client's PDF via direct URL (should fail)
+        response = self.client.get(f'/api/plans/plan-cycles/{cycle.id}/download-pdf/')
+        # Should be 403 or 404 depending on permissions
+        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])

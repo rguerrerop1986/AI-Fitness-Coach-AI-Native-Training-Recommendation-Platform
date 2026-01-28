@@ -12,10 +12,12 @@ class MealItemSerializer(serializers.ModelSerializer):
 
 class MealSerializer(serializers.ModelSerializer):
     items = MealItemSerializer(many=True, read_only=True)
+    meal_type_display = serializers.CharField(source='get_meal_type_display', read_only=True)
     
     class Meta:
         model = Meal
-        fields = ['id', 'name', 'meal_type', 'items']
+        fields = ['id', 'diet_plan', 'name', 'meal_type', 'meal_type_display', 'description', 'items', 'order']
+        read_only_fields = ['id']
 
 
 class DietPlanSerializer(serializers.ModelSerializer):
@@ -139,8 +141,8 @@ class PlanCycleDetailSerializer(PlanCycleSerializer):
 
 class ClientPlanCycleSerializer(serializers.ModelSerializer):
     """Simplified serializer for client view of their current cycle."""
-    diet_plan_summary = serializers.SerializerMethodField()
-    workout_plan_summary = serializers.SerializerMethodField()
+    diet_plan_data = serializers.SerializerMethodField()
+    workout_plan_data = serializers.SerializerMethodField()
     is_active = serializers.BooleanField(read_only=True)
     duration_days = serializers.IntegerField(read_only=True)
     
@@ -148,47 +150,36 @@ class ClientPlanCycleSerializer(serializers.ModelSerializer):
         model = PlanCycle
         fields = [
             'id', 'start_date', 'end_date', 'cadence', 'goal', 'status',
-            'is_active', 'duration_days', 'diet_plan_summary', 'workout_plan_summary'
+            'is_active', 'duration_days', 'diet_plan_data', 'workout_plan_data'
         ]
         read_only_fields = fields
     
-    def get_diet_plan_summary(self, obj):
-        """Get active diet plan assigned to this cycle."""
-        diet_assignment = obj.assignments.filter(
-            plan_type='diet',
-            is_active=True,
-            diet_plan__isnull=False
-        ).first()
-        
-        if diet_assignment and diet_assignment.diet_plan:
+    def get_diet_plan_data(self, obj):
+        """Get diet plan linked to this cycle."""
+        if hasattr(obj, 'diet_plan') and obj.diet_plan:
+            meals = obj.diet_plan.meals.all().order_by('order', 'meal_type')
             return {
-                'id': diet_assignment.diet_plan.id,
-                'title': diet_assignment.diet_plan.title,
-                'goal': diet_assignment.diet_plan.goal,
-                'daily_calories': diet_assignment.diet_plan.daily_calories,
+                'id': obj.diet_plan.id,
+                'title': obj.diet_plan.title,
+                'goal': obj.diet_plan.goal,
+                'daily_calories': obj.diet_plan.daily_calories,
+                'meals': MealSerializer(meals, many=True).data,
             }
         return None
     
-    def get_workout_plan_summary(self, obj):
-        """Get active workout plan assigned to this cycle with training entries."""
-        workout_assignment = obj.assignments.filter(
-            plan_type='workout',
-            is_active=True,
-            workout_plan__isnull=False
-        ).first()
-        
-        if workout_assignment and workout_assignment.workout_plan:
-            # Get training entries for this workout plan
+    def get_workout_plan_data(self, obj):
+        """Get workout plan linked to this cycle with training entries."""
+        if hasattr(obj, 'workout_plan') and obj.workout_plan:
             entries = TrainingEntry.objects.filter(
-                workout_plan=workout_assignment.workout_plan
+                workout_plan=obj.workout_plan
             ).order_by('date', 'id')
             
             entries_data = TrainingEntrySerializer(entries, many=True).data
             
             return {
-                'id': workout_assignment.workout_plan.id,
-                'title': workout_assignment.workout_plan.title,
-                'goal': workout_assignment.workout_plan.goal,
+                'id': obj.workout_plan.id,
+                'title': obj.workout_plan.title,
+                'goal': obj.workout_plan.goal,
                 'training_entries': entries_data,
             }
         return None
