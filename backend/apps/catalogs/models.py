@@ -178,12 +178,44 @@ class Exercise(models.Model):
         INTERMEDIATE = 'intermediate', 'Intermediate'
         ADVANCED = 'advanced', 'Advanced'
     
-    name = models.CharField(max_length=200)
-    muscle_group = models.CharField(max_length=20, choices=MuscleGroup.choices)
-    equipment = models.CharField(max_length=100, blank=True)
-    difficulty = models.CharField(max_length=15, choices=Difficulty.choices, default=Difficulty.BEGINNER)
-    instructions = models.TextField()
-    video_url = models.URLField(blank=True, help_text="Optional video demonstration URL")
+    class EquipmentType(models.TextChoices):
+        MANCUERNA = 'mancuerna', 'Mancuerna'
+        BARRA = 'barra', 'Barra'
+        MAQUINA = 'maquina', 'Máquina'
+        PESO_CORPORAL = 'peso_corporal', 'Peso Corporal'
+        BANDA = 'banda', 'Banda de Resistencia'
+        CABLE = 'cable', 'Cable'
+        KETTLEBELL = 'kettlebell', 'Kettlebell'
+        OTRO = 'otro', 'Otro'
+    
+    name = models.CharField(max_length=200, unique=True, help_text="Exercise name (unique)")
+    muscle_group = models.CharField(max_length=20, choices=MuscleGroup.choices, help_text="Muscle group")
+    equipment_type = models.CharField(
+        max_length=20,
+        choices=EquipmentType.choices,
+        null=True,
+        blank=True,
+        help_text="Type of equipment required"
+    )
+    equipment = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Specific equipment name (legacy field, use equipment_type)"
+    )
+    difficulty = models.CharField(
+        max_length=15,
+        choices=Difficulty.choices,
+        default=Difficulty.BEGINNER
+    )
+    instructions = models.TextField(help_text="Exercise instructions (text or URL)")
+    image_url = models.URLField(
+        blank=True,
+        help_text="Optional image URL for the exercise"
+    )
+    video_url = models.URLField(
+        blank=True,
+        help_text="Optional video demonstration URL"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -191,6 +223,11 @@ class Exercise(models.Model):
     class Meta:
         db_table = 'exercises'
         ordering = ['muscle_group', 'name']
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['muscle_group']),
+            models.Index(fields=['equipment_type']),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.get_muscle_group_display()})"

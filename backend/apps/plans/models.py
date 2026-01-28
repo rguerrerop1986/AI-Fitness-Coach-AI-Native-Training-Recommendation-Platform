@@ -416,3 +416,88 @@ class PlanAssignment(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+
+
+class TrainingEntry(models.Model):
+    """
+    Training entry model for workout plans.
+    Stores per-session/per-exercise prescription with sets, reps, weight, rest, and notes.
+    """
+    workout_plan = models.ForeignKey(
+        WorkoutPlan,
+        on_delete=models.CASCADE,
+        related_name='training_entries',
+        help_text="Workout plan this entry belongs to"
+    )
+    exercise = models.ForeignKey(
+        Exercise,
+        on_delete=models.CASCADE,
+        related_name='plan_entries',
+        help_text="Exercise for this training entry"
+    )
+    date = models.DateField(help_text="Date/session for this training entry")
+    series = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Number of sets"
+    )
+    repetitions = models.CharField(
+        max_length=50,
+        help_text="Repetitions (e.g., '8-12' or '10')"
+    )
+    weight_kg = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Weight in kg (optional, for bodyweight exercises leave blank)"
+    )
+    rest_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Rest time in seconds (optional)"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes for this training entry"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'training_entries'
+        ordering = ['date', 'id']
+        indexes = [
+            models.Index(fields=['workout_plan', 'date']),
+            models.Index(fields=['exercise']),
+        ]
+    
+    def __str__(self):
+        weight_str = f" @ {self.weight_kg}kg" if self.weight_kg else ""
+        rest_str = f" (rest: {self.rest_seconds}s)" if self.rest_seconds else ""
+        return f"{self.exercise.name} - {self.series}x{self.repetitions}{weight_str}{rest_str} - {self.date}"
+    
+    def clean(self):
+        """Validate business rules."""
+        from django.core.exceptions import ValidationError
+        
+        if not self.repetitions or not self.repetitions.strip():
+            raise ValidationError({
+                'repetitions': 'Repetitions field is required.'
+            })
+        
+        if self.weight_kg is not None and self.weight_kg < 0:
+            raise ValidationError({
+                'weight_kg': 'Weight must be non-negative.'
+            })
+        
+        if self.rest_seconds is not None and self.rest_seconds < 0:
+            raise ValidationError({
+                'rest_seconds': 'Rest seconds must be non-negative.'
+            })
+    
+    def save(self, *args, **kwargs):
+        """Override save to run validation."""
+        self.full_clean()
+        super().save(*args, **kwargs)

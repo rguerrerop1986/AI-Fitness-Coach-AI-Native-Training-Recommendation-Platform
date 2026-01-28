@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Food
+from .models import Food, Exercise
 
 User = get_user_model()
 
@@ -148,3 +148,76 @@ class FoodAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         food.refresh_from_db()
         self.assertEqual(food.name, 'Updated Name')
+
+
+class ExerciseAPITest(TestCase):
+    """Test Exercise API endpoints and permissions."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.client = APIClient()
+        
+        self.coach = User.objects.create_user(
+            username='coach',
+            email='coach@test.com',
+            password='testpass123',
+            role='coach',
+            first_name='Coach',
+            last_name='Test'
+        )
+        
+        self.client_user = User.objects.create_user(
+            username='client',
+            email='client@test.com',
+            password='testpass123',
+            role='client',
+            first_name='Client',
+            last_name='Test'
+        )
+    
+    def test_coach_can_create_exercise(self):
+        """Test that coach can create an exercise."""
+        self.client.force_authenticate(user=self.coach)
+        
+        data = {
+            'name': 'Bench Press',
+            'muscle_group': 'chest',
+            'equipment_type': 'barra',
+            'instructions': 'Lie on bench, lower bar to chest, press up',
+            'difficulty': 'intermediate',
+        }
+        
+        response = self.client.post('/api/exercises/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Exercise.objects.count(), 1)
+        self.assertEqual(Exercise.objects.first().name, 'Bench Press')
+    
+    def test_client_cannot_create_exercise(self):
+        """Test that client cannot create an exercise."""
+        self.client.force_authenticate(user=self.client_user)
+        
+        data = {
+            'name': 'Test Exercise',
+            'muscle_group': 'chest',
+            'equipment_type': 'peso_corporal',
+            'instructions': 'Test instructions',
+        }
+        
+        response = self.client.post('/api/exercises/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_client_can_get_exercises_list(self):
+        """Test that client can read exercises list."""
+        # Create an exercise first
+        Exercise.objects.create(
+            name='Push Up',
+            muscle_group=Exercise.MuscleGroup.CHEST,
+            equipment_type=Exercise.EquipmentType.PESO_CORPORAL,
+            instructions='Push up from floor',
+        )
+        
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/exercises/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data.get('results', response.data)), 1)

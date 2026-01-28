@@ -66,14 +66,44 @@ class FoodSerializer(serializers.ModelSerializer):
 
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for exercise catalog."""
+    muscle_group_display = serializers.SerializerMethodField()
+    equipment_type_display = serializers.SerializerMethodField()
+    difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
+    
+    def get_muscle_group_display(self, obj):
+        """Safely get muscle group display, handling null values."""
+        if obj.muscle_group:
+            return obj.get_muscle_group_display()
+        return None
+    
+    def get_equipment_type_display(self, obj):
+        """Safely get equipment type display, handling null values."""
+        if obj.equipment_type:
+            return obj.get_equipment_type_display()
+        return None
     
     class Meta:
         model = Exercise
         fields = [
-            'id', 'name', 'muscle_group', 'equipment', 'difficulty', 
-            'instructions', 'video_url', 'is_active', 'created_at', 'updated_at'
+            'id', 'name', 'muscle_group', 'muscle_group_display',
+            'equipment_type', 'equipment_type_display',
+            'equipment', 'difficulty', 'difficulty_display',
+            'instructions', 'image_url', 'video_url',
+            'is_active', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at',
+                           'muscle_group_display', 'equipment_type_display', 'difficulty_display']
+    
+    def validate(self, attrs):
+        """Validate required fields for new exercises."""
+        if not self.instance:  # Creating new exercise
+            required_fields = ['name', 'muscle_group', 'equipment_type', 'instructions']
+            for field in required_fields:
+                if field not in attrs or attrs[field] is None:
+                    raise serializers.ValidationError({
+                        field: f'{field} is required.'
+                    })
+        return attrs
 
 
 class FoodSearchSerializer(serializers.ModelSerializer):

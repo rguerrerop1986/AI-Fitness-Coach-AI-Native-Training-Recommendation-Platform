@@ -3,11 +3,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
 from apps.common.permissions import IsCoachOrAssistant, IsClient, get_client_from_user
-from .models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
+from .models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle, TrainingEntry
 from .serializers import (
     DietPlanSerializer, WorkoutPlanSerializer, PlanAssignmentSerializer,
-    PlanCycleSerializer, PlanCycleDetailSerializer, ClientPlanCycleSerializer
+    PlanCycleSerializer, PlanCycleDetailSerializer, ClientPlanCycleSerializer,
+    TrainingEntrySerializer
 )
 
 
@@ -31,6 +33,23 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filterset_fields = ['goal', 'is_active']
     search_fields = ['title', 'description']
+    
+    @action(detail=True, methods=['get', 'post'])
+    def entries(self, request, pk=None):
+        """Nested endpoint for training entries of a workout plan."""
+        workout_plan = self.get_object()
+        
+        if request.method == 'GET':
+            entries = TrainingEntry.objects.filter(workout_plan=workout_plan).order_by('date', 'id')
+            serializer = TrainingEntrySerializer(entries, many=True)
+            return Response(serializer.data)
+        
+        elif request.method == 'POST':
+            serializer = TrainingEntrySerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(workout_plan=workout_plan)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PlanAssignmentViewSet(viewsets.ModelViewSet):
@@ -125,4 +144,58 @@ class ClientCurrentCycleView(APIView):
         
         serializer = ClientPlanCycleSerializer(cycle)
         return Response(serializer.data)
-    filterset_fields = ['client', 'diet_plan', 'workout_plan', 'is_active']
+
+
+class TrainingEntryViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing training entries in workout plans.
+    
+    - Coach: Full CRUD on entries for any workout plan
+    - Client: Read-only access to entries in their assigned plans
+    """
+    queryset = TrainingEntry.objects.all()
+    serializer_class = TrainingEntrySerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['workout_plan', 'exercise', 'date']
+    ordering_fields = ['date', 'created_at']
+    ordering = ['date', 'id']
+    
+    def get_permissions(self):
+        """Different permissions for read vs write operations."""
+        if self.action in ['list', 'retrieve']:
+            # Read access for all authenticated users
+            return [IsAuthenticated()]
+        else:
+            # Write access only for coach/assistant
+            return [IsAuthenticated(), IsCoachOrAssistant()]
+    
+    def get_queryset(self):
+        """Filter entries based on user role."""
+        queryset = super().get_queryset()
+        
+        # If client, only show entries from their assigned plans
+        if self.request.user.role == 'client':
+            client = get_client_from_user(self.request.user)
+            if not client:
+                return TrainingEntry.objects.none()
+            
+            # Get workout plans assigned to this client
+            from .models import PlanAssignment
+            assigned_plans = PlanAssignment.objects.filter(
+                client=client,
+                plan_type='workout',
+                is_active=True,
+                workout_plan__isnull=False
+            ).values_list('workout_plan_id', flat=True)
+            
+            queryset = queryset.filter(workout_plan_id__in=assigned_plans)
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        """Set workout_plan if provided in URL."""
+        workout_plan_id = self.request.data.get('workout_plan')
+        if workout_plan_id:
+            serializer.save(workout_plan_id=workout_plan_id)
+        else:
+            serializer.save()

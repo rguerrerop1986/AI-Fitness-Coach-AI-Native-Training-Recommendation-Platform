@@ -58,15 +58,27 @@ class FoodViewSet(viewsets.ModelViewSet):
 
 
 class ExerciseViewSet(viewsets.ModelViewSet):
-    """ViewSet for exercise catalog management (coach only)."""
+    """ViewSet for exercise catalog management.
+    
+    - Read access: All authenticated users (coach, assistant, client)
+    - Write access: Coach and assistant only
+    """
     queryset = Exercise.objects.filter(is_active=True)
     serializer_class = ExerciseSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['muscle_group', 'difficulty', 'equipment']
+    filterset_fields = ['muscle_group', 'equipment_type', 'difficulty']
     search_fields = ['name', 'muscle_group', 'equipment']
-    ordering_fields = ['name', 'muscle_group', 'difficulty']
+    ordering_fields = ['name', 'muscle_group', 'equipment_type', 'difficulty']
     ordering = ['muscle_group', 'name']
+    
+    def get_permissions(self):
+        """Different permissions for read vs write operations."""
+        if self.action in ['list', 'retrieve']:
+            # Read access for all authenticated users
+            return [IsAuthenticated()]
+        else:
+            # Write access only for coach/assistant
+            return [IsAuthenticated(), IsCoachOrAssistant()]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -77,7 +89,8 @@ class ExerciseViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(name__icontains=search) |
                 Q(muscle_group__icontains=search) |
-                Q(equipment__icontains=search)
+                Q(equipment__icontains=search) |
+                Q(equipment_type__icontains=search)
             )
         
         return queryset

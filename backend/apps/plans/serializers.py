@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle, Meal, MealItem, WorkoutDay, ExerciseSet
+from .models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle, Meal, MealItem, WorkoutDay, ExerciseSet, TrainingEntry
 from apps.clients.serializers import ClientSerializer
+from apps.catalogs.serializers import ExerciseSerializer
 
 
 class MealItemSerializer(serializers.ModelSerializer):
@@ -43,14 +44,50 @@ class WorkoutDaySerializer(serializers.ModelSerializer):
         fields = ['id', 'day_of_week', 'name', 'exercise_sets']
 
 
+class TrainingEntrySerializer(serializers.ModelSerializer):
+    """Serializer for training entries in workout plans."""
+    exercise_detail = ExerciseSerializer(source='exercise', read_only=True)
+    
+    class Meta:
+        model = TrainingEntry
+        fields = [
+            'id', 'workout_plan', 'exercise', 'exercise_detail',
+            'date', 'series', 'repetitions', 'weight_kg',
+            'rest_seconds', 'notes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate(self, attrs):
+        """Validate business rules."""
+        if not attrs.get('repetitions') or not attrs.get('repetitions').strip():
+            raise serializers.ValidationError({
+                'repetitions': 'Repetitions field is required.'
+            })
+        
+        weight_kg = attrs.get('weight_kg')
+        if weight_kg is not None and weight_kg < 0:
+            raise serializers.ValidationError({
+                'weight_kg': 'Weight must be non-negative.'
+            })
+        
+        rest_seconds = attrs.get('rest_seconds')
+        if rest_seconds is not None and rest_seconds < 0:
+            raise serializers.ValidationError({
+                'rest_seconds': 'Rest seconds must be non-negative.'
+            })
+        
+        return attrs
+
+
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     workout_days = WorkoutDaySerializer(many=True, read_only=True)
+    training_entries = TrainingEntrySerializer(many=True, read_only=True)
     
     class Meta:
         model = WorkoutPlan
         fields = [
             'id', 'title', 'description', 'goal', 'is_active',
-            'version', 'created_at', 'updated_at', 'workout_days'
+            'version', 'created_at', 'updated_at', 'workout_days', 'training_entries'
         ]
 
 
@@ -133,7 +170,7 @@ class ClientPlanCycleSerializer(serializers.ModelSerializer):
         return None
     
     def get_workout_plan_summary(self, obj):
-        """Get active workout plan assigned to this cycle."""
+        """Get active workout plan assigned to this cycle with training entries."""
         workout_assignment = obj.assignments.filter(
             plan_type='workout',
             is_active=True,
@@ -141,9 +178,17 @@ class ClientPlanCycleSerializer(serializers.ModelSerializer):
         ).first()
         
         if workout_assignment and workout_assignment.workout_plan:
+            # Get training entries for this workout plan
+            entries = TrainingEntry.objects.filter(
+                workout_plan=workout_assignment.workout_plan
+            ).order_by('date', 'id')
+            
+            entries_data = TrainingEntrySerializer(entries, many=True).data
+            
             return {
                 'id': workout_assignment.workout_plan.id,
                 'title': workout_assignment.workout_plan.title,
                 'goal': workout_assignment.workout_plan.goal,
+                'training_entries': entries_data,
             }
         return None
