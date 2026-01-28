@@ -216,8 +216,21 @@ All authentication uses Django User accounts with SimpleJWT tokens:
   - Legacy: `/api/auth/login/` (coach/assistant, kept for backwards compatibility)
 - **Clients**: `/api/clients/` (coach only)
 - **Measurements**: `/api/clients/{id}/measurements/` (coach only)
-- **Foods**: `/api/foods/` (coach only)
-- **Exercises**: `/api/exercises/` (coach only)
+- **Foods**: `/api/foods/` 
+  - Read: All authenticated users (coach, assistant, client)
+  - Write: Coach and assistant only
+  - Filter by: `nutritional_group`, `origin_classification`
+  - Search by: `name`, `brand`
+- **Exercises**: `/api/exercises/`
+  - Read: All authenticated users (coach, assistant, client)
+  - Write: Coach and assistant only
+  - Filter by: `muscle_group`, `equipment_type`, `difficulty`
+  - Search by: `name`, `muscle_group`, `equipment`
+- **Training Entries**: `/api/training-entries/`
+  - Read: All authenticated users (clients see only their assigned plans)
+  - Write: Coach and assistant only
+  - Filter by: `workout_plan`, `exercise`, `date`
+  - Nested endpoint: `/api/workout-plans/{id}/entries/` (GET, POST)
 - **Diet Plans**: `/api/diet-plans/` (coach only)
 - **Workout Plans**: `/api/workout-plans/` (coach only)
 - **Assignments**: `/api/assignments/` (coach only)
@@ -239,6 +252,102 @@ All authentication uses Django User accounts with SimpleJWT tokens:
   - Mark Paid: `/api/appointments/{id}/mark_paid/` (requires payment_method in body)
   - Cancel: `/api/appointments/{id}/cancel/`
   - Filter by client: `/api/appointments/?client={id}`
+
+## Exercise Catalog & Training Entries
+
+The app includes a comprehensive exercise catalog that coaches can use to build workout plans with specific training entries.
+
+### Features
+
+- **Exercise Catalog**: Complete exercise database with muscle groups, equipment types, and difficulty levels
+- **Training Entries**: Connect exercises to workout plans with sets, reps, weight, rest, and notes
+- **Image Support**: Optional image URLs for exercise visualization
+- **Instructions**: Text or URL-based exercise instructions
+
+### Exercise Fields
+
+- **Name**: Unique exercise name
+- **Muscle Group**: Chest, Back, Shoulders, etc.
+- **Equipment Type**: Mancuerna, Barra, Máquina, Peso Corporal, etc.
+- **Difficulty**: Beginner, Intermediate, Advanced
+- **Instructions**: Exercise instructions (text or URL)
+- **Image URL**: Optional image for visualization
+- **Video URL**: Optional video demonstration
+
+### Training Entry Fields
+
+- **Date**: Session date for the training entry
+- **Series**: Number of sets
+- **Repetitions**: Reps (e.g., "8-12" or "10")
+- **Weight (kg)**: Optional weight (for bodyweight exercises, leave blank)
+- **Rest (seconds)**: Optional rest time between sets
+- **Notes**: Additional notes for the exercise
+
+### Coach Workflow
+
+1. **Create Exercises**: Navigate to Exercises → "Add Exercise" to create exercise entries
+2. **Build Workout Plans**: Create workout plans and add training entries
+3. **Add Training Entries**: Use `/api/workout-plans/{id}/entries/` to add exercises to plans
+4. **Assign to Clients**: Assign workout plans to clients via PlanAssignment
+
+### Client Access
+
+- Clients can view exercises in their assigned workout plans
+- Training entries are included in the current cycle response
+- Read-only access to exercise details and instructions
+
+### API Endpoints
+
+- **List Exercises**: `GET /api/exercises/` (authenticated users)
+- **Create Exercise**: `POST /api/exercises/` (coach/assistant only)
+- **List Training Entries**: `GET /api/training-entries/` (filtered by assigned plans for clients)
+- **Create Training Entry**: `POST /api/training-entries/` or `POST /api/workout-plans/{id}/entries/` (coach/assistant only)
+- **Nested Endpoint**: `GET /api/workout-plans/{id}/entries/` (get all entries for a plan)
+
+## Food Catalog & Nutrition Management
+
+The app includes a comprehensive food catalog with complete nutritional information for diet plan generation.
+
+### Features
+
+- **Complete Nutrition Data**: All nutrients stored per 100g for consistency
+- **Classification**: Foods are classified by nutritional group and origin (Vegetal/Animal/Mineral)
+- **Macronutrients**: Calories, protein, carbs, and fats (required)
+- **Optional Nutrition**: Fiber, water, and creatine tracking
+- **Notes**: Micronutrients notes and general remarks for sources
+
+### Nutritional Groups
+
+Foods are classified into 6 nutritional groups (in Spanish):
+1. Cereales, tubérculos y derivados.
+2. Frutas y verduras.
+3. Leche y derivados.
+4. Carnes, legumbres secas y huevos.
+5. Azúcares o mieles.
+6. Aceites o grasas.
+
+### Coach Workflow
+
+1. **Create Foods**: Navigate to Foods → "Add Food" to create new food entries
+2. **Required Fields**: Name, nutritional group, origin classification, and all macronutrients (per 100g)
+3. **Optional Fields**: Fiber, water, creatine, and notes
+4. **Filter & Search**: Use filters by nutritional group/origin and search by name
+5. **Edit/Delete**: Coaches can update or remove foods
+
+### Data Model
+
+- **Nutrients stored per 100g**: All macronutrients (calories_kcal, protein_g, carbs_g, fats_g) are stored per 100g for consistency
+- **Serving size**: Legacy field kept for backward compatibility
+- **Validation**: All numeric fields must be non-negative; required fields enforced in serializer
+
+### API Endpoints
+
+- **List Foods**: `GET /api/foods/` (authenticated users)
+- **Create Food**: `POST /api/foods/` (coach/assistant only)
+- **Update Food**: `PATCH /api/foods/{id}/` (coach/assistant only)
+- **Delete Food**: `DELETE /api/foods/{id}/` (coach/assistant only)
+- **Filter**: `GET /api/foods/?nutritional_group={group}&origin_classification={origin}`
+- **Search**: `GET /api/foods/?search={query}`
 
 ## Appointments & Pay-Per-Consultation
 

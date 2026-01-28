@@ -8,14 +8,18 @@ import CreateClient from './pages/CreateClient'
 import ClientDetail from './pages/ClientDetail'
 import CreateCheckIn from './pages/CreateCheckIn'
 import Foods from './pages/Foods'
+import FoodForm from './pages/FoodForm'
 import Exercises from './pages/Exercises'
+import ExerciseForm from './pages/ExerciseForm'
 import Plans from './pages/Plans'
+import PlanBuilder from './pages/PlanBuilder'
 import CheckIns from './pages/CheckIns'
 import Appointments from './pages/Appointments'
 import Layout from './components/Layout'
 import ClientLogin from './pages/ClientLogin'
 import ClientDashboard from './pages/ClientDashboard'
 import ClientAppointments from './pages/ClientAppointments'
+import ClientPlan from './pages/ClientPlan'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -70,7 +74,14 @@ function AppRoutes() {
         <Route path="clients/:id" element={<ClientDetail />} />
         <Route path="clients/:clientId/check-in" element={<CreateCheckIn />} />
         <Route path="foods" element={<Foods />} />
+        <Route path="foods/new" element={<FoodForm />} />
+        <Route path="foods/:id/edit" element={<FoodForm />} />
         <Route path="exercises" element={<Exercises />} />
+        <Route path="exercises/new" element={<ExerciseForm />} />
+        <Route path="exercises/:id/edit" element={<ExerciseForm />} />
+        <Route path="plans" element={<Plans />} />
+        <Route path="plans/new" element={<PlanBuilder />} />
+        <Route path="plans/:cycleId/builder" element={<PlanBuilder />} />
         <Route path="plans" element={<Plans />} />
         <Route path="checkins" element={<CheckIns />} />
         <Route path="appointments" element={<Appointments />} />
@@ -86,6 +97,11 @@ function AppRoutes() {
       <Route path="/client/appointments" element={
         <ClientProtectedRoute>
           <ClientAppointments />
+        </ClientProtectedRoute>
+      } />
+      <Route path="/client/plan" element={
+        <ClientProtectedRoute>
+          <ClientPlan />
         </ClientProtectedRoute>
       } />
     </Routes>
