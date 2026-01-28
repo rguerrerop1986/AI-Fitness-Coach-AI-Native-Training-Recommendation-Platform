@@ -5,10 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from apps.common.permissions import IsCoach, IsClient, get_client_from_user
 from .models import Appointment
 from .serializers import AppointmentSerializer, ClientAppointmentSerializer
-
+from apps.common.permissions import IsCoach, IsClient
+from apps.common.utils import get_client_from_user
 
 class AppointmentViewSet(viewsets.ModelViewSet):
     """ViewSet for appointment management (coach only - full CRUD)."""

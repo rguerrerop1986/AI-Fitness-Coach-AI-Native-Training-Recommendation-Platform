@@ -20,24 +20,27 @@ class AppointmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['coach', 'created_at', 'updated_at']
     
     def validate(self, attrs):
-        """Validate business rules."""
-        # Only COMPLETED appointments can be marked PAID
-        payment_status = attrs.get('payment_status', self.instance.payment_status if self.instance else Appointment.PaymentStatus.UNPAID)
-        status = attrs.get('status', self.instance.status if self.instance else Appointment.Status.SCHEDULED)
-        
+        payment_status = attrs.get(
+            'payment_status',
+            self.instance.payment_status if self.instance else Appointment.PaymentStatus.UNPAID
+        )
+        status = attrs.get(
+            'status',
+            self.instance.status if self.instance else Appointment.Status.SCHEDULED
+        )
         if payment_status == Appointment.PaymentStatus.PAID and status != Appointment.Status.COMPLETED:
             raise serializers.ValidationError({
                 'payment_status': 'Appointment must be COMPLETED before marking as PAID.'
             })
-        
-        # If marked as PAID, require payment_method
         if payment_status == Appointment.PaymentStatus.PAID:
-            payment_method = attrs.get('payment_method', self.instance.payment_method if self.instance else None)
+            payment_method = attrs.get(
+                'payment_method',
+                self.instance.payment_method if self.instance else None
+            )
             if not payment_method:
                 raise serializers.ValidationError({
                     'payment_method': 'Payment method is required when payment status is PAID.'
                 })
-        
         return attrs
     
     def create(self, validated_data):
