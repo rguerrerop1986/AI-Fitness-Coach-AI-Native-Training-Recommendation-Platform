@@ -13,15 +13,27 @@ from .serializers import (
 
 
 class FoodViewSet(viewsets.ModelViewSet):
-    """ViewSet for food catalog management (coach only)."""
+    """ViewSet for food catalog management.
+    
+    - Read access: All authenticated users (coach, assistant, client)
+    - Write access: Coach and assistant only
+    """
     queryset = Food.objects.filter(is_active=True)
     serializer_class = FoodSerializer
-    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['tags']
+    filterset_fields = ['nutritional_group', 'origin_classification']
     search_fields = ['name', 'brand']
-    ordering_fields = ['name', 'kcal', 'protein_g']
+    ordering_fields = ['name', 'calories_kcal', 'protein_g', 'nutritional_group']
     ordering = ['name']
+    
+    def get_permissions(self):
+        """Different permissions for read vs write operations."""
+        if self.action in ['list', 'retrieve']:
+            # Read access for all authenticated users
+            return [IsAuthenticated()]
+        else:
+            # Write access only for coach/assistant
+            return [IsAuthenticated(), IsCoachOrAssistant()]
     
     def get_queryset(self):
         queryset = super().get_queryset()
