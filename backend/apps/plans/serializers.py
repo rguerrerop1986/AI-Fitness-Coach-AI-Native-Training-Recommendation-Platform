@@ -120,9 +120,9 @@ class PlanCycleSerializer(serializers.ModelSerializer):
             'id', 'client', 'client_name', 'coach', 'coach_name',
             'start_date', 'end_date', 'cadence', 'goal', 'status',
             'notes', 'is_active', 'duration_days', 'assignment_count',
-            'checkin_count', 'created_at', 'updated_at'
+            'checkin_count', 'plan_pdf', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'plan_pdf', 'created_at', 'updated_at']
     
     def get_assignment_count(self, obj):
         return obj.assignments.count()

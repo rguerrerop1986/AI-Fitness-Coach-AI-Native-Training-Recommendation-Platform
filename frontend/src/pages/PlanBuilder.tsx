@@ -20,6 +20,7 @@ interface PlanCycle {
   goal: string;
   status: string;
   duration_days: number;
+  plan_pdf?: string | null;
   diet_plan?: any;
   workout_plan?: any;
 }
@@ -109,6 +110,8 @@ export default function PlanBuilder() {
     if (!cycleId) return;
     try {
       setLoading(true);
+      // Backend route is /api/plan-cycles/<pk>/generate-pdf/
+      // Our axios client already prefixes with /api, so we use /plan-cycles/ here.
       await api.post(`/plan-cycles/${cycleId}/generate-pdf/`);
       alert('PDF generated successfully!');
       fetchCycle();
@@ -121,7 +124,8 @@ export default function PlanBuilder() {
 
   const handleDownloadPDF = () => {
     if (!cycleId) return;
-    window.open(`/api/plans/plan-cycles/${cycleId}/download-pdf/`, '_blank');
+    // Absolute URL including /api prefix, matching backend route
+    window.open(`/api/plan-cycles/${cycleId}/download-pdf/`, '_blank');
   };
 
   if (cycleId && !cycle) {

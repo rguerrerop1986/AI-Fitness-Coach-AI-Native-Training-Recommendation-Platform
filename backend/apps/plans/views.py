@@ -309,7 +309,7 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='generate-pdf')
     def generate_pdf(self, request, pk=None):
         """Generate PDF for the plan cycle."""
         cycle = self.get_object()
@@ -332,7 +332,7 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='download-pdf')
     def download_pdf(self, request, pk=None):
         """Download the generated PDF."""
         cycle = self.get_object()
