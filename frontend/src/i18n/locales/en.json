@@ -118,7 +118,12 @@
     "latestWeight": "Latest Weight",
     "weightTrend": "Weight Trend",
     "createNewClient": "Create New Client",
-    "addNewClientDescription": "Add a new client to your fitness coaching program"
+    "addNewClientDescription": "Add a new client to your fitness coaching program",
+    "portalAccess": "Portal access",
+    "portalAccessDescription": "Set a password so the client can log in to the client portal (limited options). They will use their email as username.",
+    "portalPassword": "Portal password",
+    "portalPasswordPlaceholder": "At least 8 characters",
+    "portalPasswordConfirm": "Confirm password"
   },
   "checkIns": {
     "title": "Check-ins",

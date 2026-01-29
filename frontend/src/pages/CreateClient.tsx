@@ -21,6 +21,11 @@ const createClientSchema = z.object({
   emergency_contact_name: z.string().min(1, 'Emergency contact name is required'),
   emergency_contact_phone: z.string().min(1, 'Emergency contact phone is required'),
   emergency_contact_relationship: z.string().min(1, 'Emergency contact relationship is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password_confirm: z.string(),
+}).refine(data => data.password === data.password_confirm, {
+  message: 'Passwords do not match',
+  path: ['password_confirm'],
 });
 
 type CreateClientFormData = z.infer<typeof createClientSchema>;
@@ -64,13 +69,18 @@ export default function CreateClient() {
         notes: data.notes || '',
         consent_checkbox: data.consent_checkbox,
         emergency_contact: emergencyContactString,
+        password: data.password,
       });
 
       if (response.status === 201) {
         navigate('/clients');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create client');
+      const detail = err.response?.data;
+      const msg = typeof detail === 'object' && detail !== null
+        ? (detail.email?.[0] || detail.password?.[0] || detail.detail || JSON.stringify(detail))
+        : (err.response?.data?.message || 'Failed to create client');
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -220,6 +230,46 @@ export default function CreateClient() {
                       />
                       {errors.phone && (
                         <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Portal access (client login) */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.portalAccess')}</h3>
+                  <p className="text-sm text-gray-500 mb-4">{t('clients.portalAccessDescription')}</p>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                        {t('clients.portalPassword')} *
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        {...register('password')}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder={t('clients.portalPasswordPlaceholder')}
+                        autoComplete="new-password"
+                      />
+                      {errors.password && (
+                        <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
+                        {t('clients.portalPasswordConfirm')} *
+                      </label>
+                      <input
+                        type="password"
+                        id="password_confirm"
+                        {...register('password_confirm')}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder={t('clients.portalPasswordPlaceholder')}
+                        autoComplete="new-password"
+                      />
+                      {errors.password_confirm && (
+                        <p className="mt-1 text-sm text-red-600">{errors.password_confirm.message}</p>
                       )}
                     </div>
                   </div>

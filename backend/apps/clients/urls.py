@@ -6,7 +6,7 @@ from apps.tracking.views import CheckInViewSet
 
 # Create the main router
 router = DefaultRouter()
-router.register(r'clients', ClientViewSet)
+router.register(r'clients', ClientViewSet, basename='client')
 
 # Create nested router for measurements
 clients_router = routers.NestedDefaultRouter(router, r'clients', lookup='client')

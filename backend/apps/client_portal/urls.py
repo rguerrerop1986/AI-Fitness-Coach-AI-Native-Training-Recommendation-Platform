@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from apps.plans.views import ClientCurrentCycleView
 from apps.appointments.views import ClientAppointmentView
+from apps.tracking.views import ClientTrainingLogMeView, ClientDietLogMeView
 from .views import (
     ClientDashboardView, ClientPlanViewSet, ClientCurrentPlanView, ClientPlanPDFView
 )
@@ -16,5 +17,7 @@ urlpatterns = [
     path('current-plan/', ClientCurrentPlanView.as_view(), name='client-current-plan'),
     path('current-plan/pdf/', ClientPlanPDFView.as_view(), name='client-plan-pdf'),
     path('me/appointments/', ClientAppointmentView.as_view(), name='client-appointments'),
+    path('me/training-log/', ClientTrainingLogMeView.as_view(), name='client-me-training-log'),
+    path('me/diet-log/', ClientDietLogMeView.as_view(), name='client-me-diet-log'),
     path('', include(router.urls)),
 ]

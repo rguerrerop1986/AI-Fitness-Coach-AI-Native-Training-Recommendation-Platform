@@ -6,10 +6,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from apps.common.permissions import IsCoachOrAssistant
 from .models import Client, Measurement
+from django.contrib.auth import get_user_model
 from .serializers import (
     ClientSerializer, ClientCreateSerializer, 
-    MeasurementSerializer, ClientMeasurementSerializer
+    MeasurementSerializer, ClientMeasurementSerializer,
+    ClientSetPasswordSerializer
 )
+
+User = get_user_model()
 
 
 class ClientViewSet(viewsets.ModelViewSet):
@@ -27,7 +31,18 @@ class ClientViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return ClientCreateSerializer
         return ClientSerializer
-    
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        instance = serializer.instance
+        # Return full client with portal_username so coach knows login credentials
+        return Response(
+            ClientSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     def get_queryset(self):
         queryset = super().get_queryset()
         
@@ -57,6 +72,53 @@ class ClientViewSet(viewsets.ModelViewSet):
         client.is_active = True
         client.save()
         return Response({'message': 'Client restored successfully.'})
+
+    @action(detail=True, methods=['post'])
+    def set_password(self, request, pk=None):
+        """Set or update portal password for a client. Creates User if it doesn't exist."""
+        client = self.get_object()
+        serializer = ClientSetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        password = serializer.validated_data['password']
+
+        if client.user_id:
+            # Update existing user password
+            user = client.user
+            user.set_password(password)
+            user.save()
+            message = 'Password updated successfully.'
+        else:
+            # Create new user for client
+            email = client.email
+            username = email[:150] if len(email) > 150 else email
+            if User.objects.filter(username__iexact=username).exists():
+                username = f"client_{client.id}"
+
+            # Check if email is already used by another user
+            if User.objects.filter(email__iexact=email).exists():
+                return Response(
+                    {'error': f'A user with email {email} already exists. Cannot create portal access.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user = User(
+                username=username,
+                email=email,
+                first_name=client.first_name,
+                last_name=client.last_name,
+                role=User.Role.CLIENT,
+            )
+            user.set_password(password)
+            user.save()
+            client.user = user
+            client.save(update_fields=['user'])
+            message = 'Portal access created successfully. Client can now log in.'
+
+        return Response({
+            'message': message,
+            'portal_username': user.username,
+            'has_portal_access': True,
+        })
 
 
 class MeasurementViewSet(viewsets.ModelViewSet):

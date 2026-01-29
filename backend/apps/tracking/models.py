@@ -6,6 +6,195 @@ from apps.clients.models import Client
 User = get_user_model()
 
 
+class TrainingLog(models.Model):
+    """ML-ready daily training log: suggested vs executed, adherence signals."""
+
+    class ExecutionStatus(models.TextChoices):
+        NOT_DONE = 'not_done', 'Not Done'
+        PARTIAL = 'partial', 'Partial'
+        DONE = 'done', 'Done'
+        REPLACED = 'replaced', 'Replaced'
+        INJURY_STOP = 'injury_stop', 'Injury Stop'
+        SICK = 'sick', 'Sick'
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='training_logs',
+    )
+    plan_cycle = models.ForeignKey(
+        'plans.PlanCycle',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_logs',
+    )
+    coach = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_logs_reviewed',
+    )
+    date = models.DateField()
+
+    suggested_exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='suggested_logs',
+    )
+    executed_exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='executed_logs',
+    )
+    execution_status = models.CharField(
+        max_length=20,
+        choices=ExecutionStatus.choices,
+        default=ExecutionStatus.NOT_DONE,
+    )
+
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True)
+    rpe = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text='Rate of Perceived Exertion 1-10',
+    )
+    energy_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    pain_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+    notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'training_logs'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['client', 'date'], name='training_logs_client_date_unique'),
+        ]
+        indexes = [
+            models.Index(fields=['client', 'date']),
+            models.Index(fields=['plan_cycle', 'date']),
+        ]
+
+    def __str__(self):
+        return f'{self.client.full_name} - Training {self.date}'
+
+    def save(self, *args, **kwargs):
+        if not self.plan_cycle and self.client and self.date:
+            try:
+                from apps.plans.models import PlanCycle
+                active = PlanCycle.objects.filter(
+                    client=self.client,
+                    status=PlanCycle.Status.ACTIVE,
+                    start_date__lte=self.date,
+                    end_date__gte=self.date,
+                ).first()
+                if active:
+                    self.plan_cycle = active
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+
+class DietLog(models.Model):
+    """ML-ready daily diet log: adherence and hunger/craving/digestion signals."""
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='diet_logs',
+    )
+    plan_cycle = models.ForeignKey(
+        'plans.PlanCycle',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='diet_logs',
+    )
+    coach = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='diet_logs_reviewed',
+    )
+    date = models.DateField()
+
+    adherence_percent = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    calories_estimate_kcal = models.PositiveIntegerField(null=True, blank=True)
+    protein_estimate_g = models.PositiveIntegerField(null=True, blank=True)
+    carbs_estimate_g = models.PositiveIntegerField(null=True, blank=True)
+    fats_estimate_g = models.PositiveIntegerField(null=True, blank=True)
+
+    hunger_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    cravings_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    digestion_quality = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'diet_logs'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['client', 'date'], name='diet_logs_client_date_unique'),
+        ]
+        indexes = [
+            models.Index(fields=['client', 'date']),
+            models.Index(fields=['plan_cycle', 'date']),
+        ]
+
+    def __str__(self):
+        return f'{self.client.full_name} - Diet {self.date}'
+
+    def save(self, *args, **kwargs):
+        if not self.plan_cycle and self.client and self.date:
+            try:
+                from apps.plans.models import PlanCycle
+                active = PlanCycle.objects.filter(
+                    client=self.client,
+                    status=PlanCycle.Status.ACTIVE,
+                    start_date__lte=self.date,
+                    end_date__gte=self.date,
+                ).first()
+                if active:
+                    self.plan_cycle = active
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+
 class CheckIn(models.Model):
     """Client check-in model for tracking progress and adherence."""
     

@@ -118,7 +118,12 @@
     "latestWeight": "Último Peso",
     "weightTrend": "Tendencia de Peso",
     "createNewClient": "Crear Nuevo Cliente",
-    "addNewClientDescription": "Agregar un nuevo cliente a tu programa de entrenamiento"
+    "addNewClientDescription": "Agregar un nuevo cliente a tu programa de entrenamiento",
+    "portalAccess": "Acceso al portal",
+    "portalAccessDescription": "Define una contraseña para que el cliente pueda entrar al portal de clientes (opciones limitadas). Usará su correo como usuario.",
+    "portalPassword": "Contraseña del portal",
+    "portalPasswordPlaceholder": "Mínimo 8 caracteres",
+    "portalPasswordConfirm": "Confirmar contraseña"
   },
   "checkIns": {
     "title": "Seguimientos",

@@ -16,6 +16,8 @@ interface Client {
   notes: string;
   emergency_contact: string;
   created_at: string;
+  has_portal_access?: boolean;
+  portal_username?: string | null;
 }
 
 interface CheckIn {
@@ -45,6 +47,11 @@ export default function ClientDetail() {
   const [selectedMetric, setSelectedMetric] = useState<string>('weight_kg');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -65,6 +72,47 @@ export default function ClientDetail() {
       setError(err.response?.data?.message || 'Failed to fetch client data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setPasswordLoading(true);
+
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters long');
+      setPasswordLoading(false);
+      return;
+    }
+
+    try {
+      const response = await api.post(`/clients/${id}/set_password/`, {
+        password,
+      });
+      setPasswordSuccess(response.data.message || 'Password set successfully');
+      setPassword('');
+      setShowPasswordModal(false);
+      // Refresh client data to get updated portal_username
+      await fetchClientData();
+    } catch (err: any) {
+      console.error('Set password error:', err);
+      if (err.response?.status === 404) {
+        setPasswordError('Endpoint not found. Please make sure the server is running and has been restarted after the latest changes.');
+      } else if (err.response?.status === 403) {
+        setPasswordError('You do not have permission to set passwords. Only coaches can perform this action.');
+      } else if (err.response?.status === 401) {
+        setPasswordError('You are not authenticated. Please log in again.');
+      } else {
+        const detail = err.response?.data;
+        const msg = typeof detail === 'object' && detail !== null
+          ? (detail.password?.[0] || detail.error || detail.detail || JSON.stringify(detail))
+          : (err.response?.data?.message || err.message || 'Failed to set password');
+        setPasswordError(msg);
+      }
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -284,7 +332,32 @@ export default function ClientDetail() {
                       <dd className="mt-1 text-sm text-gray-900">{client.notes}</dd>
                     </div>
                   )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Portal Access</dt>
+                    <dd className="mt-1 text-sm">
+                      {client.has_portal_access ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          Not Set
+                        </span>
+                      )}
+                      {client.portal_username && (
+                        <span className="ml-2 text-gray-600">({client.portal_username})</span>
+                      )}
+                    </dd>
+                  </div>
                 </dl>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowPasswordModal(true)}
+                    className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    {client.has_portal_access ? 'Update Portal Password' : 'Set Portal Password'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -468,6 +541,72 @@ export default function ClientDetail() {
           </div>
         </div>
       </div>
+
+      {/* Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {client.has_portal_access ? 'Update Portal Password' : 'Set Portal Password'}
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                {client.has_portal_access
+                  ? 'Enter a new password for the client portal. The client will use their email as username.'
+                  : 'Set a password so the client can access the portal. They will use their email as username.'}
+              </p>
+              {passwordError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-sm text-red-800">{passwordError}</p>
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-3">
+                  <p className="text-sm text-green-800">{passwordSuccess}</p>
+                </div>
+              )}
+              <form onSubmit={handleSetPassword}>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password (min. 8 characters)
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter password"
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <div className="mt-4 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setPassword('');
+                      setPasswordError(null);
+                      setPasswordSuccess(null);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading || password.length < 8}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {passwordLoading ? 'Setting...' : 'Set Password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
