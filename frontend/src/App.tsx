@@ -21,6 +21,7 @@ import ClientLogin from './pages/ClientLogin'
 import ClientDashboard from './pages/ClientDashboard'
 import ClientAppointments from './pages/ClientAppointments'
 import ClientPlan from './pages/ClientPlan'
+import DailyLog from './pages/DailyLog'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -103,6 +104,11 @@ function AppRoutes() {
       <Route path="/client/plan" element={
         <ClientProtectedRoute>
           <ClientPlan />
+        </ClientProtectedRoute>
+      } />
+      <Route path="/client/daily-log" element={
+        <ClientProtectedRoute>
+          <DailyLog />
         </ClientProtectedRoute>
       } />
     </Routes>
