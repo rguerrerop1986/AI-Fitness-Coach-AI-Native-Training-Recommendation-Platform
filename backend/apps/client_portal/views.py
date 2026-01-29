@@ -103,6 +103,7 @@ class ClientPlanPDFView(APIView):
             response = FileResponse(cycle.plan_pdf.open('rb'), content_type='application/pdf')
             filename = cycle.plan_pdf.name.split('/')[-1]
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Cache-Control'] = 'no-store'
             return response
         except Exception as e:
             return Response(

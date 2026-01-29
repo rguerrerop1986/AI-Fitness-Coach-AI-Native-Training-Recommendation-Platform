@@ -113,6 +113,8 @@ export default function PlanBuilder() {
       // Backend route is /api/plan-cycles/<pk>/generate-pdf/
       // Our axios client already prefixes with /api, so we use /plan-cycles/ here.
       await api.post(`/plan-cycles/${cycleId}/generate-pdf/`);
+      console.log('PDF generated successfully!');
+      
       alert('PDF generated successfully!');
       fetchCycle();
     } catch (err: any) {
@@ -122,18 +124,44 @@ export default function PlanBuilder() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    if (!cycleId) return;
-    // Absolute URL including /api prefix, matching backend route
-    window.open(`/api/plan-cycles/${cycleId}/download-pdf/`, '_blank');
+  const handleDownloadPDF = async () => {
+    if (!cycleId || !cycle) return;
+    try {
+      const url = `/plan-cycles/${cycleId}/download-pdf/`;
+      const fallbackName = `Plan_${cycle.client_name.replace(/\s+/g, '')}_${cycle.start_date}_${cycle.end_date}.pdf`;
+
+      const res = await api.get(url, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      let filename = fallbackName;
+      const disposition =
+        (res.headers && (res.headers['content-disposition'] || res.headers['Content-Disposition'])) || '';
+      if (disposition) {
+        const match = /filename=\"?([^\";]+)\"?/i.exec(disposition);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to download PDF');
+    }
   };
 
   if (cycleId && !cycle) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
           </div>
         </div>
       </div>
@@ -142,14 +170,14 @@ export default function PlanBuilder() {
 
   if (cycleId && cycle) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Plan Builder</h1>
-                <p className="mt-2 text-sm text-gray-600">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Plan Builder</h1>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                   {cycle.client_name} • {cycle.duration_days} días • {cycle.start_date} - {cycle.end_date}
                 </p>
               </div>
@@ -157,7 +185,7 @@ export default function PlanBuilder() {
                 <button
                   onClick={handleGeneratePDF}
                   disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                 >
                   <FileText className="h-5 w-5 mr-2" />
                   Generar PDF
@@ -165,7 +193,7 @@ export default function PlanBuilder() {
                 {cycle.plan_pdf && (
                   <button
                     onClick={handleDownloadPDF}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                   >
                     <Download className="h-5 w-5 mr-2" />
                     Descargar PDF
@@ -176,21 +204,21 @@ export default function PlanBuilder() {
           </div>
 
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 px-4 py-3 rounded">
               {error}
             </div>
           )}
 
           {/* Tabs */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+            <div className="border-b border-gray-200 dark:border-gray-700">
               <nav className="-mb-px flex">
                 <button
                   onClick={() => setActiveTab('diet')}
                   className={`py-4 px-6 text-sm font-medium border-b-2 ${
                     activeTab === 'diet'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
                   Plan de Nutrición
@@ -199,8 +227,8 @@ export default function PlanBuilder() {
                   onClick={() => setActiveTab('workout')}
                   className={`py-4 px-6 text-sm font-medium border-b-2 ${
                     activeTab === 'workout'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
                   Plan de Entrenamiento
@@ -220,30 +248,30 @@ export default function PlanBuilder() {
 
   // Create new cycle form
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Create New Plan</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Create New Plan</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Create a new diet and workout plan for a client
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+          <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 px-4 py-3 rounded">
             <pre className="whitespace-pre-wrap text-sm">{error}</pre>
           </div>
         )}
 
-        <form onSubmit={handleCreateCycle} className="bg-white shadow rounded-lg p-6 space-y-6">
+        <form onSubmit={handleCreateCycle} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Client <span className="text-red-500">*</span>
             </label>
             <select
               name="client_id"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a client</option>
               {clients.map(client => (
@@ -255,7 +283,7 @@ export default function PlanBuilder() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Period (days) <span className="text-red-500">*</span>
             </label>
             <input
@@ -264,17 +292,17 @@ export default function PlanBuilder() {
               required
               min="1"
               defaultValue="15"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Goal (optional)
             </label>
             <select
               name="goal"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select goal</option>
               <option value="fat_loss">Fat Loss</option>
@@ -284,18 +312,18 @@ export default function PlanBuilder() {
             </select>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => navigate('/plans')}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50"
             >
               <Plus className="h-4 w-4 mr-2" />
               {loading ? 'Creating...' : 'Create Plan'}

@@ -322,14 +322,23 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
             filename = f"plan_{cycle.client.full_name.replace(' ', '_')}_{cycle.start_date}_{cycle.end_date}.pdf"
             cycle.plan_pdf.save(filename, ContentFile(pdf_buffer.read()), save=True)
             
-            return Response({
-                'message': 'PDF generated successfully',
-                'download_url': f'/api/plans/plan-cycles/{cycle.id}/download-pdf/'
-            }, status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    'message': 'PDF generated successfully',
+                    'download_url': f'/api/plan-cycles/{cycle.id}/download-pdf/'
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except ValueError as e:
+            # Explicit error when PDF is considered "empty" or too small
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
             return Response(
                 {'error': f'Failed to generate PDF: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
     
     @action(detail=True, methods=['get'], url_path='download-pdf')
@@ -347,6 +356,7 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
             response = FileResponse(cycle.plan_pdf.open('rb'), content_type='application/pdf')
             filename = cycle.plan_pdf.name.split('/')[-1]
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Cache-Control'] = 'no-store'
             return response
         except Exception as e:
             return Response(

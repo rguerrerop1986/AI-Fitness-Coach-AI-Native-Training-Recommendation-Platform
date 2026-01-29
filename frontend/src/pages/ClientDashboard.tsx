@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '../contexts/ThemeContext'
 import { 
   User, 
   Apple, 
@@ -11,7 +12,9 @@ import {
   Calendar,
   Scale,
   Target,
-  Clock
+  Clock,
+  Moon,
+  Sun
 } from 'lucide-react'
 import { api } from '../lib/api'
 
@@ -51,6 +54,7 @@ interface ClientData {
 }
 
 export default function ClientDashboard() {
+  const { theme, toggleTheme } = useTheme()
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -141,31 +145,42 @@ export default function ClientDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white shadow">
+      <div className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <User className="h-8 w-8 text-primary-600 mr-3" />
+              <User className="h-8 w-8 text-primary-600 dark:text-primary-400 mr-3" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Welcome, {clientData.first_name}!
                 </h1>
-                <p className="text-gray-600">Your personalized fitness dashboard</p>
+                <p className="text-gray-600 dark:text-gray-400">Your personalized fitness dashboard</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <button
+                onClick={toggleTheme}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </button>
+              <button
                 onClick={() => navigate('/client/appointments')}
-                className="flex items-center text-gray-600 hover:text-gray-900"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <Clock className="h-5 w-5 mr-2" />
                 Appointments
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center text-gray-600 hover:text-gray-900"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <LogOut className="h-5 w-5 mr-2" />
                 Logout
@@ -181,14 +196,14 @@ export default function ClientDashboard() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Scale className="h-8 w-8 text-primary-600" />
+                <Scale className="h-8 w-8 text-primary-600 dark:text-primary-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
                     Current Weight
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900">
+                  <dd className="text-lg font-medium text-gray-900 dark:text-gray-100">
                     {clientData.latest_measurement?.weight_kg || clientData.initial_weight_kg} kg
                   </dd>
                 </dl>
@@ -199,7 +214,7 @@ export default function ClientDashboard() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Target className="h-8 w-8 text-success-600" />
+                <Target className="h-8 w-8 text-success-600 dark:text-success-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -217,7 +232,7 @@ export default function ClientDashboard() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Apple className="h-8 w-8 text-warning-600" />
+                <Apple className="h-8 w-8 text-warning-600 dark:text-warning-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -235,7 +250,7 @@ export default function ClientDashboard() {
           <div className="card">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Dumbbell className="h-8 w-8 text-danger-600" />
+                <Dumbbell className="h-8 w-8 text-danger-600 dark:text-danger-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -256,8 +271,8 @@ export default function ClientDashboard() {
           {/* Diet Plan */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Apple className="h-6 w-6 text-warning-600 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                <Apple className="h-6 w-6 text-warning-600 dark:text-warning-400 mr-2" />
                 Diet Plan
               </h2>
             </div>
@@ -265,10 +280,10 @@ export default function ClientDashboard() {
             {clientData.active_diet_plan ? (
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                     {clientData.active_diet_plan.title}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Goal: {clientData.active_diet_plan.goal}
                   </p>
                   <p className="text-gray-600">
@@ -291,9 +306,9 @@ export default function ClientDashboard() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <Apple className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No diet plan assigned yet</p>
-                <p className="text-sm text-gray-400">Contact your coach to get started</p>
+                <Apple className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No diet plan assigned yet</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">Contact your coach to get started</p>
               </div>
             )}
           </div>
@@ -301,8 +316,8 @@ export default function ClientDashboard() {
           {/* Workout Plan */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Dumbbell className="h-6 w-6 text-danger-600 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                <Dumbbell className="h-6 w-6 text-danger-600 dark:text-danger-400 mr-2" />
                 Workout Plan
               </h2>
             </div>
@@ -310,10 +325,10 @@ export default function ClientDashboard() {
             {clientData.active_workout_plan ? (
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                     {clientData.active_workout_plan.title}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Goal: {clientData.active_workout_plan.goal}
                   </p>
                   <p className="text-sm text-gray-500">
@@ -333,9 +348,9 @@ export default function ClientDashboard() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <Dumbbell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No workout plan assigned yet</p>
-                <p className="text-sm text-gray-400">Contact your coach to get started</p>
+                <Dumbbell className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No workout plan assigned yet</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">Contact your coach to get started</p>
               </div>
             )}
           </div>
@@ -345,46 +360,46 @@ export default function ClientDashboard() {
         {clientData.latest_measurement && (
           <div className="mt-8">
             <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <TrendingUp className="h-6 w-6 text-success-600 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <TrendingUp className="h-6 w-6 text-success-600 dark:text-success-400 mr-2" />
                 Latest Measurements
-                <span className="text-sm font-normal text-gray-500 ml-2">
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
                   ({new Date(clientData.latest_measurement.date).toLocaleDateString()})
                 </span>
               </h2>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <div className="text-2xl font-bold text-gray-900">
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {clientData.latest_measurement.weight_kg}
                   </div>
-                  <div className="text-sm text-gray-500">Weight (kg)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Weight (kg)</div>
                 </div>
                 
                 {clientData.latest_measurement.body_fat_pct && (
-                  <div className="text-center p-4 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.body_fat_pct}%
                     </div>
-                    <div className="text-sm text-gray-500">Body Fat</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Body Fat</div>
                   </div>
                 )}
                 
                 {clientData.latest_measurement.chest_cm && (
-                  <div className="text-center p-4 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.chest_cm}
                     </div>
-                    <div className="text-sm text-gray-500">Chest (cm)</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Chest (cm)</div>
                   </div>
                 )}
                 
                 {clientData.latest_measurement.waist_cm && (
-                  <div className="text-center p-4 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.waist_cm}
                     </div>
-                    <div className="text-sm text-gray-500">Waist (cm)</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Waist (cm)</div>
                   </div>
                 )}
               </div>

@@ -26,6 +26,7 @@ ReactDOM.createRoot(rootElement).render(
               background: '#363636',
               color: '#fff',
             },
+            className: 'dark:bg-gray-800 dark:text-gray-100',
           }}
         />
       </BrowserRouter>

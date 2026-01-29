@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -110,11 +111,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <ClientAuthProvider>
-        <AppRoutes />
-      </ClientAuthProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ClientAuthProvider>
+          <AppRoutes />
+        </ClientAuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 
