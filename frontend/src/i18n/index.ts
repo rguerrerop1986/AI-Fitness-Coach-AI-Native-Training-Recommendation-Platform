@@ -24,8 +24,11 @@ i18n
     },
     detection: {
       order: ['localStorage', 'navigator'],
+      lookupLocalStorage: 'language',
       caches: ['localStorage'],
     },
+    supportedLngs: ['es', 'en'],
+    load: 'languageOnly',
   });
 
 export default i18n;

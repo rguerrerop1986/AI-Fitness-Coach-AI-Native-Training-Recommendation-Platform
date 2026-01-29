@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts/ThemeContext';
-import { Download, Calendar, FileText, Moon, Sun } from 'lucide-react';
+import { Download, Moon, Sun } from 'lucide-react';
 
 interface Meal {
   id: number;
@@ -45,6 +46,7 @@ interface PlanData {
 }
 
 export default function ClientPlan() {
+  const { t, i18n: i18nInstance } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function ClientPlan() {
       const response = await api.get('/client/current-plan/');
       setPlan(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to fetch plan');
+      setError(err.response?.data?.error || t('clientPortal.noActivePlan'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +97,7 @@ export default function ClientPlan() {
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to download PDF');
+      setError(err.response?.data?.error || t('clientPortal.downloadPdfFailed'));
     }
   };
 
@@ -116,7 +118,7 @@ export default function ClientPlan() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 px-4 py-3 rounded">
-            {error || 'No active plan found. Contact your coach.'}
+            {error || t('clientPortal.noActivePlan')}
           </div>
         </div>
       </div>
@@ -140,16 +142,32 @@ export default function ClientPlan() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Mi Plan Actual</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('clientPortal.myCurrentPlan')}</h1>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {plan.start_date} - {plan.end_date} • {plan.duration_days} días
+                {plan.start_date} - {plan.end_date} • {plan.duration_days} {t('plans.daysLabel')}
               </p>
             </div>
             <div className="flex items-center gap-x-3">
+              <div className="flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { i18nInstance.changeLanguage('es'); localStorage.setItem('language', 'es'); }}
+                  className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('es') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  ES
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { i18nInstance.changeLanguage('en'); localStorage.setItem('language', 'en'); }}
+                  className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('en') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  EN
+                </button>
+              </div>
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+                title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
               >
                 {theme === 'dark' ? (
                   <Sun className="h-5 w-5" />
@@ -162,7 +180,7 @@ export default function ClientPlan() {
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 <Download className="h-5 w-5 mr-2" />
-                Descargar PDF
+                {t('clientPortal.downloadPdfButton')}
               </button>
             </div>
           </div>
@@ -171,7 +189,7 @@ export default function ClientPlan() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Diet Plan */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Plan de Nutrición</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('clientPortal.nutritionPlan')}</h2>
             {plan.diet_plan_data && plan.diet_plan_data.meals.length > 0 ? (
               <div className="space-y-4">
                 {plan.diet_plan_data.meals.map(meal => (
@@ -187,13 +205,13 @@ export default function ClientPlan() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">No hay comidas definidas en este plan.</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('plans.noMeals')}</p>
             )}
           </div>
 
           {/* Workout Plan */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Plan de Entrenamiento</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('clientPortal.trainingPlan')}</h2>
             {Object.keys(entriesByDate).length > 0 ? (
               <div className="space-y-6">
                 {Object.entries(entriesByDate)
@@ -208,10 +226,10 @@ export default function ClientPlan() {
                               {entry.exercise_detail.name}
                             </h4>
                             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                              <p>Series: {entry.series}</p>
-                              <p>Reps: {entry.repetitions}</p>
-                              {entry.weight_kg && <p>Peso: {entry.weight_kg} kg</p>}
-                              {entry.rest_seconds && <p>Descanso: {entry.rest_seconds}s</p>}
+                              <p>{t('clientPortal.series')}: {entry.series}</p>
+                              <p>{t('clientPortal.reps')}: {entry.repetitions}</p>
+                              {entry.weight_kg && <p>{t('clientPortal.weight')}: {entry.weight_kg} kg</p>}
+                              {entry.rest_seconds && <p>{t('clientPortal.rest')}: {entry.rest_seconds}s</p>}
                               {entry.notes && <p className="text-gray-700 dark:text-gray-300">{entry.notes}</p>}
                             </div>
                           </div>
@@ -221,7 +239,7 @@ export default function ClientPlan() {
                   ))}
               </div>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">No hay ejercicios definidos en este plan.</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('plans.noExercises')}</p>
             )}
           </div>
         </div>

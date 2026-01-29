@@ -19,6 +19,7 @@ interface Appointment {
 }
 
 export default function ClientAppointments() {
+  const { t, i18n: i18nInstance } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [appointments, setAppointments] = useState<{
     all: Appointment[];
@@ -37,7 +38,7 @@ export default function ClientAppointments() {
       const response = await api.get('/client/me/appointments/');
       setAppointments(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch appointments');
+      setError(err.response?.data?.message || t('appointments.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -91,15 +92,31 @@ export default function ClientAppointments() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Appointments</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('appointments.myAppointments')}</h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              View your scheduled consultations and payment status
+              {t('appointments.myAppointmentsSubtitle')}
             </p>
+          </div>
+          <div className="flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => { i18nInstance.changeLanguage('es'); localStorage.setItem('language', 'es'); }}
+              className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('es') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            >
+              ES
+            </button>
+            <button
+              type="button"
+              onClick={() => { i18nInstance.changeLanguage('en'); localStorage.setItem('language', 'en'); }}
+              className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('en') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            >
+              EN
+            </button>
           </div>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
           >
             {theme === 'dark' ? (
               <Sun className="h-5 w-5" />
@@ -117,10 +134,10 @@ export default function ClientAppointments() {
 
         {/* Upcoming Appointments */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Upcoming Appointments</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('appointments.upcoming')}</h2>
           {appointments.upcoming.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
-              No upcoming appointments scheduled
+              {t('appointments.noUpcoming')}
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
@@ -141,14 +158,14 @@ export default function ClientAppointments() {
                         <div className="ml-8 space-y-1">
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                             <Clock className="h-4 w-4 mr-2" />
-                            Duration: {appointment.duration_minutes} minutes
+                            {t('appointments.duration')}: {t('appointments.durationMinutes', { count: appointment.duration_minutes })}
                           </div>
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                             <DollarSign className="h-4 w-4 mr-2" />
-                            Price: {appointment.currency} {parseFloat(appointment.price).toFixed(2)}
+                            {t('appointments.price')}: {appointment.currency} {parseFloat(appointment.price).toFixed(2)}
                           </div>
                           <div className="flex items-center text-sm">
-                            <span className="text-gray-600 dark:text-gray-400 mr-2">Payment:</span>
+                            <span className="text-gray-600 dark:text-gray-400 mr-2">{t('appointments.payment')}:</span>
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentBadge(appointment.payment_status)} dark:opacity-80`}>
                               {appointment.payment_status}
                             </span>
@@ -170,10 +187,10 @@ export default function ClientAppointments() {
 
         {/* Past Appointments */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Past Appointments</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('appointments.past')}</h2>
           {appointments.past.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
-              No past appointments
+              {t('appointments.noPast')}
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
@@ -194,14 +211,14 @@ export default function ClientAppointments() {
                         <div className="ml-8 space-y-1">
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                             <Clock className="h-4 w-4 mr-2" />
-                            Duration: {appointment.duration_minutes} minutes
+                            {t('appointments.duration')}: {t('appointments.durationMinutes', { count: appointment.duration_minutes })}
                           </div>
                           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                             <DollarSign className="h-4 w-4 mr-2" />
-                            Price: {appointment.currency} {parseFloat(appointment.price).toFixed(2)}
+                            {t('appointments.price')}: {appointment.currency} {parseFloat(appointment.price).toFixed(2)}
                           </div>
                           <div className="flex items-center text-sm">
-                            <span className="text-gray-600 dark:text-gray-400 mr-2">Payment:</span>
+                            <span className="text-gray-600 dark:text-gray-400 mr-2">{t('appointments.payment')}:</span>
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentBadge(appointment.payment_status)}`}>
                               {appointment.payment_status}
                             </span>

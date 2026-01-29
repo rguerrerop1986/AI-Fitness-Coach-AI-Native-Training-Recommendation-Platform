@@ -35,10 +35,10 @@ export default function Login() {
     setLoading(true)
     try {
       await login(data.username, data.password)
-      toast.success('Login successful!')
+      toast.success(t('auth.loginSuccess'))
       navigate('/dashboard')
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Login failed')
+      toast.error(error.response?.data?.detail || t('auth.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -50,7 +50,7 @@ export default function Login() {
         <button
           onClick={toggleTheme}
           className="p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
         >
           {theme === 'dark' ? (
             <Sun className="h-5 w-5" />
@@ -117,13 +117,13 @@ export default function Login() {
 
           <div className="text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Demo credentials:
+              {t('auth.demoCredentials')}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-              Coach: coach / demo123
+              {t('auth.coachDemo')}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500">
-              Assistant: assistant / demo123
+              {t('auth.assistantDemo')}
             </p>
           </div>
         </form>

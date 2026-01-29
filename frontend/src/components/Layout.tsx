@@ -14,7 +14,8 @@ import {
   X,
   Clock,
   Moon,
-  Sun
+  Sun,
+  Globe
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -24,7 +25,8 @@ export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { t } = useTranslation()
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const { t, i18n: i18nInstance } = useTranslation()
 
   const navigation = [
     { name: t('navigation.dashboard'), href: '/dashboard', icon: Home },
@@ -33,8 +35,14 @@ export default function Layout() {
     { name: t('navigation.exercises'), href: '/exercises', icon: Dumbbell },
     { name: t('navigation.plans'), href: '/plans', icon: Calendar },
     { name: t('navigation.checkIns'), href: '/checkins', icon: FileText },
-    { name: 'Appointments', href: '/appointments', icon: Clock },
+    { name: t('navigation.appointments'), href: '/appointments', icon: Clock },
   ]
+
+  const handleLanguageChange = (lng: string) => {
+    i18nInstance.changeLanguage(lng)
+    localStorage.setItem('language', lng)
+    setLangMenuOpen(false)
+  }
 
   const handleLogout = () => {
     logout()
@@ -127,7 +135,7 @@ export default function Layout() {
                 <button
                   onClick={toggleTheme}
                   className="p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+                  title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
                 >
                   {theme === 'dark' ? (
                     <Sun className="h-5 w-5" />
@@ -135,6 +143,36 @@ export default function Layout() {
                     <Moon className="h-5 w-5" />
                   )}
                 </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setLangMenuOpen(!langMenuOpen)}
+                    className="flex items-center gap-1 p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    title={t('language.label')}
+                  >
+                    <Globe className="h-5 w-5" />
+                    <span className="text-sm font-medium uppercase">{i18nInstance.language?.slice(0, 2) || 'es'}</span>
+                  </button>
+                  {langMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setLangMenuOpen(false)} />
+                      <div className="absolute right-0 mt-1 w-36 rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 z-20">
+                        <button
+                          onClick={() => handleLanguageChange('es')}
+                          className={`block w-full text-left px-4 py-2 text-sm rounded-t-md ${i18nInstance.language?.startsWith('es') ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >
+                          {t('language.es')}
+                        </button>
+                        <button
+                          onClick={() => handleLanguageChange('en')}
+                          className={`block w-full text-left px-4 py-2 text-sm rounded-b-md ${i18nInstance.language?.startsWith('en') ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >
+                          {t('language.en')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {user?.first_name} {user?.last_name}
                 </span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { Plus, Calendar, User, Download, Trash2 } from 'lucide-react';
 
@@ -15,6 +16,7 @@ interface PlanCycle {
 
 export default function Plans() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [cycles, setCycles] = useState<PlanCycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function Plans() {
       const response = await api.get('/plan-cycles/');
       setCycles(response.data.results || response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch plans');
+      setError(err.response?.data?.message || t('plans.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -40,16 +42,15 @@ export default function Plans() {
   };
 
   const handleDeletePlan = async (cycleId: number, clientName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the plan for ${clientName}? This action cannot be undone.`)) {
+    if (!window.confirm(t('plans.deleteConfirm', { name: clientName }))) {
       return;
     }
 
     try {
       await api.delete(`/plan-cycles/${cycleId}/`);
-      // Refresh the list after deletion
       await fetchCycles();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.response?.data?.message || 'Failed to delete plan';
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || t('plans.deleteFailed');
       setError(errorMessage);
       setTimeout(() => setError(null), 5000);
     }
@@ -73,9 +74,9 @@ export default function Plans() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Plans</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('plans.title')}</h1>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Create and manage diet and workout plans for clients
+                {t('plans.subtitle')}
               </p>
             </div>
             <button
@@ -83,7 +84,7 @@ export default function Plans() {
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-5 w-5 mr-2" />
-              Create New Plan
+              {t('plans.createNewPlan')}
             </button>
           </div>
         </div>
@@ -100,19 +101,19 @@ export default function Plans() {
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Client
+                    {t('plans.client')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Period
+                    {t('plans.period')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Duration
+                    {t('plans.duration')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Status
+                    {t('plans.status')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -126,7 +127,7 @@ export default function Plans() {
                       {cycle.start_date} - {cycle.end_date}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {cycle.duration_days} días
+                      {t('plans.durationDays', { count: cycle.duration_days })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -134,7 +135,7 @@ export default function Plans() {
                         cycle.status === 'draft' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' :
                         'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                       }`}>
-                        {cycle.status}
+                        {t(`status.${cycle.status}` as const)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -142,21 +143,21 @@ export default function Plans() {
                         <button
                           onClick={() => navigate(`/plans/${cycle.id}/builder`)}
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                          title="Edit plan"
+                          title={t('plans.edit')}
                         >
-                          Edit
+                          {t('common.edit')}
                         </button>
                         <button
                           onClick={() => handleDownloadPDF(cycle.id)}
                           className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300"
-                          title="Download PDF"
+                          title={t('plans.downloadPdf')}
                         >
                           <Download className="h-4 w-4 inline" />
                         </button>
                         <button
                           onClick={() => handleDeletePlan(cycle.id, cycle.client_name)}
                           className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          title="Delete plan"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-4 w-4 inline" />
                         </button>
@@ -169,7 +170,7 @@ export default function Plans() {
           </div>
           {cycles.length === 0 && (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              No plans found. Click "Create New Plan" to get started.
+              {t('plans.noPlans')} {t('plans.noPlansHint')}
             </div>
           )}
         </div>

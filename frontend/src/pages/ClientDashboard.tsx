@@ -55,11 +55,11 @@ interface ClientData {
 
 export default function ClientDashboard() {
   const { theme, toggleTheme } = useTheme()
+  const { t, i18n: i18nInstance } = useTranslation()
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { t } = useTranslation()
 
   useEffect(() => {
     fetchClientData()
@@ -79,7 +79,7 @@ export default function ClientDashboard() {
         navigate('/client/login')
         return
       }
-      setError('Failed to load dashboard data')
+      setError(t('clientPortal.dashboardLoadFailed'))
     } finally {
       setLoading(false)
     }
@@ -114,7 +114,7 @@ export default function ClientDashboard() {
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error downloading plan:', error)
-      alert('Failed to download plan. Please try again.')
+      setError(t('clientPortal.downloadPdfFailed'))
     }
   }
 
@@ -134,14 +134,14 @@ export default function ClientDashboard() {
           onClick={fetchClientData}
           className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700"
         >
-          Try Again
+          {t('common.tryAgain')}
         </button>
       </div>
     )
   }
 
   if (!clientData) {
-    return <div>No data available</div>
+    return <div>{t('clientPortal.dashboardLoadFailed')}</div>
   }
 
   return (
@@ -154,16 +154,32 @@ export default function ClientDashboard() {
               <User className="h-8 w-8 text-primary-600 dark:text-primary-400 mr-3" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Welcome, {clientData.first_name}!
+                  {t('clientPortal.welcome', { name: clientData.first_name })}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">Your personalized fitness dashboard</p>
+                <p className="text-gray-600 dark:text-gray-400">{t('clientPortal.dashboardSubtitle')}</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <div className="flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { i18nInstance.changeLanguage('es'); localStorage.setItem('language', 'es'); }}
+                  className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('es') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  ES
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { i18nInstance.changeLanguage('en'); localStorage.setItem('language', 'en'); }}
+                  className={`px-2 py-1 text-sm font-medium ${i18nInstance.language?.startsWith('en') ? 'bg-primary-600 text-white dark:bg-primary-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  EN
+                </button>
+              </div>
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+                title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
               >
                 {theme === 'dark' ? (
                   <Sun className="h-5 w-5" />
@@ -176,14 +192,14 @@ export default function ClientDashboard() {
                 className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <Clock className="h-5 w-5 mr-2" />
-                Appointments
+                {t('clientPortal.appointments')}
               </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <LogOut className="h-5 w-5 mr-2" />
-                Logout
+                {t('clientPortal.logout')}
               </button>
             </div>
           </div>
@@ -201,7 +217,7 @@ export default function ClientDashboard() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Current Weight
+                    {t('clientPortal.currentWeight')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-gray-100">
                     {clientData.latest_measurement?.weight_kg || clientData.initial_weight_kg} kg
@@ -218,8 +234,8 @@ export default function ClientDashboard() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Height
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('clientPortal.height')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
                     {clientData.height_cm} cm
@@ -236,8 +252,8 @@ export default function ClientDashboard() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Active Diet Plan
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('clientPortal.activeDietPlan')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
                     {clientData.active_diet_plan ? 'Yes' : 'None'}
@@ -254,8 +270,8 @@ export default function ClientDashboard() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Active Workout Plan
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('clientPortal.activeWorkoutPlan')}
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
                     {clientData.active_workout_plan ? 'Yes' : 'None'}
@@ -273,7 +289,7 @@ export default function ClientDashboard() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
                 <Apple className="h-6 w-6 text-warning-600 dark:text-warning-400 mr-2" />
-                Diet Plan
+                {t('clientPortal.dietPlan')}
               </h2>
             </div>
             
@@ -284,31 +300,31 @@ export default function ClientDashboard() {
                     {clientData.active_diet_plan.title}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Goal: {clientData.active_diet_plan.goal}
+                    {t('clientPortal.goal')}: {clientData.active_diet_plan.goal}
                   </p>
-                  <p className="text-gray-600">
-                    Daily Calories: {clientData.active_diet_plan.daily_calories} kcal
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {t('clientPortal.dailyCalories')}: {clientData.active_diet_plan.daily_calories} {t('clientPortal.kcal')}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Assigned: {new Date(clientData.active_diet_plan.assigned_date).toLocaleDateString()}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('clientPortal.assigned')}: {new Date(clientData.active_diet_plan.assigned_date).toLocaleDateString()}
                   </p>
                 </div>
                 
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => downloadPlan('diet', 1)} // You'll need to get the actual assignment ID
+                    onClick={() => downloadPlan('diet', 1)}
                     className="flex items-center bg-warning-600 text-white px-4 py-2 rounded hover:bg-warning-700"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download PDF
+                    {t('clientPortal.downloadPdf')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
                 <Apple className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No diet plan assigned yet</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">Contact your coach to get started</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('clientPortal.noDietPlan')}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">{t('clientPortal.contactCoach')}</p>
               </div>
             )}
           </div>
@@ -318,7 +334,7 @@ export default function ClientDashboard() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
                 <Dumbbell className="h-6 w-6 text-danger-600 dark:text-danger-400 mr-2" />
-                Workout Plan
+                {t('clientPortal.workoutPlan')}
               </h2>
             </div>
             
@@ -329,28 +345,28 @@ export default function ClientDashboard() {
                     {clientData.active_workout_plan.title}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Goal: {clientData.active_workout_plan.goal}
+                    {t('clientPortal.goal')}: {clientData.active_workout_plan.goal}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Assigned: {new Date(clientData.active_workout_plan.assigned_date).toLocaleDateString()}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('clientPortal.assigned')}: {new Date(clientData.active_workout_plan.assigned_date).toLocaleDateString()}
                   </p>
                 </div>
                 
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => downloadPlan('workout', 1)} // You'll need to get the actual assignment ID
+                    onClick={() => downloadPlan('workout', 1)}
                     className="flex items-center bg-danger-600 text-white px-4 py-2 rounded hover:bg-danger-700"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download PDF
+                    {t('clientPortal.downloadPdf')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
                 <Dumbbell className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No workout plan assigned yet</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">Contact your coach to get started</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('clientPortal.noWorkoutPlan')}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">{t('clientPortal.contactCoach')}</p>
               </div>
             )}
           </div>
@@ -362,7 +378,7 @@ export default function ClientDashboard() {
             <div className="card">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                 <TrendingUp className="h-6 w-6 text-success-600 dark:text-success-400 mr-2" />
-                Latest Measurements
+                {t('clientPortal.latestMeasurements')}
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
                   ({new Date(clientData.latest_measurement.date).toLocaleDateString()})
                 </span>
@@ -373,7 +389,7 @@ export default function ClientDashboard() {
                   <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     {clientData.latest_measurement.weight_kg}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Weight (kg)</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t('clientPortal.weightKg')}</div>
                 </div>
                 
                 {clientData.latest_measurement.body_fat_pct && (
@@ -381,7 +397,7 @@ export default function ClientDashboard() {
                     <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.body_fat_pct}%
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Body Fat</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('clientPortal.bodyFat')}</div>
                   </div>
                 )}
                 
@@ -390,7 +406,7 @@ export default function ClientDashboard() {
                     <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.chest_cm}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Chest (cm)</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('clientPortal.chestCm')}</div>
                   </div>
                 )}
                 
@@ -399,7 +415,7 @@ export default function ClientDashboard() {
                     <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {clientData.latest_measurement.waist_cm}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Waist (cm)</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('clientPortal.waistCm')}</div>
                   </div>
                 )}
               </div>

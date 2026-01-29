@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Download, FileText, Calendar, User } from 'lucide-react';
@@ -29,6 +30,7 @@ export default function PlanBuilder() {
   const navigate = useNavigate();
   const { cycleId } = useParams<{ cycleId: string }>();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -47,7 +49,7 @@ export default function PlanBuilder() {
       const response = await api.get('/clients/');
       setClients(response.data.results || response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch clients');
+      setError(err.response?.data?.message || t('errors.failedToFetch'));
     }
   };
 
@@ -57,7 +59,7 @@ export default function PlanBuilder() {
       const response = await api.get(`/plan-cycles/${cycleId}/`);
       setCycle(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch cycle');
+      setError(err.response?.data?.message || t('errors.failedToFetch'));
     } finally {
       setLoading(false);
     }
@@ -99,7 +101,7 @@ export default function PlanBuilder() {
           setError(errors);
         }
       } else {
-        setError('Failed to create plan cycle');
+        setError(t('errors.failedToCreate'));
       }
     } finally {
       setLoading(false);
@@ -115,10 +117,10 @@ export default function PlanBuilder() {
       await api.post(`/plan-cycles/${cycleId}/generate-pdf/`);
       console.log('PDF generated successfully!');
       
-      alert('PDF generated successfully!');
+      // PDF generated - UI will show download button
       fetchCycle();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to generate PDF');
+      setError(err.response?.data?.error || t('plans.generatePdf'));
     } finally {
       setLoading(false);
     }
@@ -152,7 +154,7 @@ export default function PlanBuilder() {
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to download PDF');
+      setError(err.response?.data?.error || t('clientPortal.downloadPdfFailed'));
     }
   };
 
@@ -176,9 +178,9 @@ export default function PlanBuilder() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Plan Builder</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('plans.planBuilder')}</h1>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  {cycle.client_name} • {cycle.duration_days} días • {cycle.start_date} - {cycle.end_date}
+                  {cycle.client_name} • {t('plans.durationDays', { count: cycle.duration_days })} • {cycle.start_date} - {cycle.end_date}
                 </p>
               </div>
               <div className="flex space-x-3">
@@ -188,7 +190,7 @@ export default function PlanBuilder() {
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                 >
                   <FileText className="h-5 w-5 mr-2" />
-                  Generar PDF
+                  {t('plans.generatePdf')}
                 </button>
                 {cycle.plan_pdf && (
                   <button
@@ -196,7 +198,7 @@ export default function PlanBuilder() {
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                   >
                     <Download className="h-5 w-5 mr-2" />
-                    Descargar PDF
+                    {t('plans.downloadPdf')}
                   </button>
                 )}
               </div>
@@ -221,7 +223,7 @@ export default function PlanBuilder() {
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
-                  Plan de Nutrición
+                  {t('plans.nutritionPlan')}
                 </button>
                 <button
                   onClick={() => setActiveTab('workout')}
@@ -231,7 +233,7 @@ export default function PlanBuilder() {
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
-                  Plan de Entrenamiento
+                  {t('plans.workoutPlan')}
                 </button>
               </nav>
             </div>
@@ -251,9 +253,9 @@ export default function PlanBuilder() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Create New Plan</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('plans.createPlan')}</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Create a new diet and workout plan for a client
+            {t('plans.createPlanSubtitle')}
           </p>
         </div>
 
@@ -266,14 +268,14 @@ export default function PlanBuilder() {
         <form onSubmit={handleCreateCycle} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Client <span className="text-red-500">*</span>
+              {t('plans.client')} <span className="text-red-500">*</span>
             </label>
             <select
               name="client_id"
               required
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select a client</option>
+              <option value="">{t('plans.selectClient')}</option>
               {clients.map(client => (
                 <option key={client.id} value={client.id}>
                   {client.full_name}
@@ -284,7 +286,7 @@ export default function PlanBuilder() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Period (days) <span className="text-red-500">*</span>
+              {t('plans.periodDays')} <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -298,17 +300,17 @@ export default function PlanBuilder() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Goal (optional)
+              {t('plans.goalOptional')}
             </label>
             <select
               name="goal"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select goal</option>
-              <option value="fat_loss">Fat Loss</option>
-              <option value="recomp">Recomposition</option>
-              <option value="muscle_gain">Muscle Gain</option>
-              <option value="maintenance">Maintenance</option>
+              <option value="">{t('plans.selectGoal')}</option>
+              <option value="fat_loss">{t('plans.fatLoss')}</option>
+              <option value="recomp">{t('plans.recomp')}</option>
+              <option value="muscle_gain">{t('plans.muscleGain')}</option>
+              <option value="maintenance">{t('plans.maintenance')}</option>
             </select>
           </div>
 
@@ -318,7 +320,7 @@ export default function PlanBuilder() {
               onClick={() => navigate('/plans')}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -326,7 +328,7 @@ export default function PlanBuilder() {
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50"
             >
               <Plus className="h-4 w-4 mr-2" />
-              {loading ? 'Creating...' : 'Create Plan'}
+              {loading ? t('plans.creating') : t('plans.createPlan')}
             </button>
           </div>
         </form>

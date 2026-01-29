@@ -101,7 +101,7 @@ export default function Dashboard() {
             <div className="ml-5 w-0 flex-1">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
-                  Foods in Catalog
+                  {t('dashboard.totalFoods')}
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
                   {stats?.total_foods}
@@ -137,7 +137,7 @@ export default function Dashboard() {
             <div className="ml-5 w-0 flex-1">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
-                  Pending Check-ins
+                  {t('dashboard.pendingCheckIns')}
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
                   {stats?.pending_checkins}
@@ -155,7 +155,7 @@ export default function Dashboard() {
             <div className="ml-5 w-0 flex-1">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">
-                  Low Adherence
+                  {t('dashboard.lowAdherence')}
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
                   {stats?.low_adherence_clients}
@@ -168,46 +168,46 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('dashboard.quickActions')}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/clients"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Users className="h-6 w-6 text-primary-600 mr-3" />
-            <span className="text-sm font-medium text-gray-900">Manage Clients</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('dashboard.manageClients')}</span>
           </Link>
           
           <Link
             to="/foods"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Apple className="h-6 w-6 text-warning-600 mr-3" />
-            <span className="text-sm font-medium text-gray-900">Food Catalog</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('dashboard.foodCatalog')}</span>
           </Link>
           
           <Link
             to="/exercises"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Dumbbell className="h-6 w-6 text-danger-600 mr-3" />
-            <span className="text-sm font-medium text-gray-900">Exercise Catalog</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('dashboard.exerciseCatalog')}</span>
           </Link>
           
           <Link
             to="/plans"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Calendar className="h-6 w-6 text-primary-600 mr-3" />
-            <span className="text-sm font-medium text-gray-900">Create Plans</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('dashboard.createPlans')}</span>
           </Link>
           
           <Link
             to="/checkins"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <TrendingUp className="h-6 w-6 text-success-600 mr-3" />
-            <span className="text-sm font-medium text-gray-900">View Check-ins</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('dashboard.viewCheckins')}</span>
           </Link>
         </div>
       </div>
