@@ -16,7 +16,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-development-key-chang
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
 
 # Application definition
 INSTALLED_APPS = [
@@ -152,12 +152,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+    "http://192.168.0.187:5173",
 ]
 
-# Allow all localhost ports in development (more flexible)
+# In development, allow any origin so other devices on LAN can connect
 if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = False  # Still use specific origins for security
-    # But allow common Vite dev server ports
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
     CORS_ALLOWED_ORIGINS.extend([
         "http://localhost:3000",
         "http://127.0.0.1:3000",

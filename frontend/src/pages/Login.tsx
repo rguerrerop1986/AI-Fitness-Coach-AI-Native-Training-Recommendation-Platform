@@ -80,6 +80,7 @@ export default function Login() {
               <input
                 id="username"
                 type="text"
+                autoComplete="username"
                 {...register('username')}
                 className="input"
                 placeholder={t('auth.email')}
@@ -95,6 +96,7 @@ export default function Login() {
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 {...register('password')}
                 className="input"
                 placeholder={t('auth.password')}
