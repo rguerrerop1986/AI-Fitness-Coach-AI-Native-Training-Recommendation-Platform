@@ -2,6 +2,8 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useTranslation } from 'react-i18next'
+import { useRole } from '../auth/useRole'
+import { UserRole } from '../auth/roles'
 import { 
   Home, 
   Users, 
@@ -21,6 +23,7 @@ import { useState } from 'react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { role } = useRole()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
@@ -28,15 +31,23 @@ export default function Layout() {
   const [langMenuOpen, setLangMenuOpen] = useState(false)
   const { t, i18n: i18nInstance } = useTranslation()
 
-  const navigation = [
-    { name: t('navigation.dashboard'), href: '/dashboard', icon: Home },
-    { name: t('navigation.clients'), href: '/clients', icon: Users },
-    { name: t('navigation.foods'), href: '/foods', icon: Apple },
-    { name: t('navigation.exercises'), href: '/exercises', icon: Dumbbell },
-    { name: t('navigation.plans'), href: '/plans', icon: Calendar },
-    { name: t('navigation.checkIns'), href: '/checkins', icon: FileText },
-    { name: t('navigation.appointments'), href: '/appointments', icon: Clock },
+  // Define navigation items with allowed roles
+  const allNavigationItems = [
+    { name: t('navigation.dashboard'), href: '/dashboard', icon: Home, roles: ['coach', 'assistant', 'client'] as UserRole[] },
+    { name: t('navigation.plans'), href: '/plans', icon: Calendar, roles: ['coach', 'assistant', 'client'] as UserRole[] },
+    { name: t('navigation.checkIns'), href: '/checkins', icon: FileText, roles: ['coach', 'assistant', 'client'] as UserRole[] },
+    { name: t('navigation.appointments'), href: '/appointments', icon: Clock, roles: ['coach', 'assistant', 'client'] as UserRole[] },
+    // Coach-only items
+    { name: t('navigation.clients'), href: '/clients', icon: Users, roles: ['coach', 'assistant'] as UserRole[] },
+    { name: t('navigation.foods'), href: '/foods', icon: Apple, roles: ['coach', 'assistant'] as UserRole[] },
+    { name: t('navigation.exercises'), href: '/exercises', icon: Dumbbell, roles: ['coach', 'assistant'] as UserRole[] },
   ]
+
+  // Filter navigation based on current role
+  const navigation = allNavigationItems.filter(item => {
+    if (!role) return false
+    return item.roles.includes(role)
+  })
 
   const handleLanguageChange = (lng: string) => {
     i18nInstance.changeLanguage(lng)

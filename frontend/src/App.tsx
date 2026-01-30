@@ -2,6 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import RequireRole from './auth/RequireRole'
+import { useRole } from './auth/useRole'
+import { isCoach } from './auth/roles'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -25,6 +28,7 @@ import DailyLog from './pages/DailyLog'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
+  const { role } = useRole()
   
   if (loading) {
     return (
@@ -36,6 +40,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Defense in depth: only redirect if user is explicitly a client
+  // (Missing/unknown role with coach token → allow access so admin/staff can enter)
+  if (role === 'client') {
+    return <Navigate to="/client/dashboard" replace />
   }
   
   return <>{children}</>
@@ -71,20 +81,69 @@ function AppRoutes() {
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="clients" element={<Clients />} />
-        <Route path="clients/create" element={<CreateClient />} />
-        <Route path="clients/:id" element={<ClientDetail />} />
-        <Route path="clients/:clientId/check-in" element={<CreateCheckIn />} />
-        <Route path="foods" element={<Foods />} />
-        <Route path="foods/new" element={<FoodForm />} />
-        <Route path="foods/:id/edit" element={<FoodForm />} />
-        <Route path="exercises" element={<Exercises />} />
-        <Route path="exercises/new" element={<ExerciseForm />} />
-        <Route path="exercises/:id/edit" element={<ExerciseForm />} />
+        {/* Coach-only routes */}
+        <Route path="clients" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <Clients />
+          </RequireRole>
+        } />
+        <Route path="clients/create" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <CreateClient />
+          </RequireRole>
+        } />
+        <Route path="clients/:id" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <ClientDetail />
+          </RequireRole>
+        } />
+        <Route path="clients/:clientId/check-in" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <CreateCheckIn />
+          </RequireRole>
+        } />
+        <Route path="foods" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <Foods />
+          </RequireRole>
+        } />
+        <Route path="foods/new" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <FoodForm />
+          </RequireRole>
+        } />
+        <Route path="foods/:id/edit" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <FoodForm />
+          </RequireRole>
+        } />
+        <Route path="exercises" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <Exercises />
+          </RequireRole>
+        } />
+        <Route path="exercises/new" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <ExerciseForm />
+          </RequireRole>
+        } />
+        <Route path="exercises/:id/edit" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <ExerciseForm />
+          </RequireRole>
+        } />
+        {/* Shared routes (coach and client can access) */}
         <Route path="plans" element={<Plans />} />
-        <Route path="plans/new" element={<PlanBuilder />} />
-        <Route path="plans/:cycleId/builder" element={<PlanBuilder />} />
-        <Route path="plans" element={<Plans />} />
+        <Route path="plans/new" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <PlanBuilder />
+          </RequireRole>
+        } />
+        <Route path="plans/:cycleId/builder" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <PlanBuilder />
+          </RequireRole>
+        } />
         <Route path="checkins" element={<CheckIns />} />
         <Route path="appointments" element={<Appointments />} />
       </Route>

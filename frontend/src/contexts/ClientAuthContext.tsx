@@ -15,7 +15,7 @@ interface ClientAuthContextType {
   refreshToken: () => Promise<void>
 }
 
-const ClientAuthContext = createContext<ClientAuthContextType | undefined>(undefined)
+export const ClientAuthContext = createContext<ClientAuthContextType | undefined>(undefined)
 
 export function ClientAuthProvider({ children }: { children: React.ReactNode }) {
   const [client, setClient] = useState<Client | null>(null)
@@ -48,6 +48,11 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
       })
       
       const { client: clientData, access, refresh } = response.data
+      
+      // Clear coach/admin tokens so client session is isolated
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user')
       
       localStorage.setItem('client_access_token', access)
       localStorage.setItem('client_refresh_token', refresh)

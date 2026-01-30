@@ -19,7 +19,7 @@ interface AuthContextType {
   refreshToken: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -51,6 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       const { user: userData, tokens } = response.data
+      
+      // Clear client portal tokens so coach session is isolated
+      localStorage.removeItem('client_access_token')
+      localStorage.removeItem('client_refresh_token')
+      localStorage.removeItem('client_info')
       
       localStorage.setItem('access_token', tokens.access)
       localStorage.setItem('refresh_token', tokens.refresh)
