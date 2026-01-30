@@ -73,11 +73,11 @@ export default function ClientDashboard() {
     } catch (error: any) {
       console.error('Error fetching client data:', error)
       if (error.response?.status === 401) {
-        // Token expired or invalid, redirect to login
+        // Token expired or invalid, redirect to root (role selector)
         localStorage.removeItem('client_access_token')
         localStorage.removeItem('client_refresh_token')
         localStorage.removeItem('client_info')
-        navigate('/client/login')
+        navigate('/')
         return
       }
       setError(t('clientPortal.dashboardLoadFailed'))
@@ -91,31 +91,25 @@ export default function ClientDashboard() {
     localStorage.removeItem('client_refresh_token')
     localStorage.removeItem('client_info')
     delete api.defaults.headers.common['Authorization']
-    navigate('/client/login')
+    navigate('/')
   }
 
-  const downloadPlan = async (planType: 'diet' | 'workout', assignmentId: number) => {
+  const downloadCurrentPlanPdf = async () => {
     try {
-      const endpoint = planType === 'diet' 
-        ? `/client/plans/${assignmentId}/download_diet_pdf/`
-        : `/client/plans/${assignmentId}/download_workout_pdf/`
-      
-      const response = await api.get(endpoint, {
+      const response = await api.get('/client/current-plan/pdf/', {
         responseType: 'blob'
       })
-
-      // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `${planType}_plan.pdf`)
+      link.setAttribute('download', 'mi_plan.pdf')
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading plan:', error)
-      setError(t('clientPortal.downloadPdfFailed'))
+    } catch (err: any) {
+      console.error('Error downloading plan:', err)
+      setError(err.response?.data?.error || t('clientPortal.downloadPdfFailed'))
     }
   }
 
@@ -332,10 +326,16 @@ export default function ClientDashboard() {
                   </p>
                 </div>
                 
-                <div className="flex space-x-3">
+                <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => downloadPlan('diet', 1)}
-                    className="flex items-center bg-warning-600 text-white px-4 py-2 rounded hover:bg-warning-700"
+                    onClick={() => navigate('/client/plan')}
+                    className="flex items-center bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+                  >
+                    {t('clientPortal.viewPlan')}
+                  </button>
+                  <button
+                    onClick={downloadCurrentPlanPdf}
+                    className="flex items-center bg-warning-600 text-white px-4 py-2 rounded hover:bg-warning-700 dark:bg-warning-500 dark:hover:bg-warning-600"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     {t('clientPortal.downloadPdf')}
@@ -374,10 +374,16 @@ export default function ClientDashboard() {
                   </p>
                 </div>
                 
-                <div className="flex space-x-3">
+                <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => downloadPlan('workout', 1)}
-                    className="flex items-center bg-danger-600 text-white px-4 py-2 rounded hover:bg-danger-700"
+                    onClick={() => navigate('/client/plan')}
+                    className="flex items-center bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+                  >
+                    {t('clientPortal.viewPlan')}
+                  </button>
+                  <button
+                    onClick={downloadCurrentPlanPdf}
+                    className="flex items-center bg-danger-600 text-white px-4 py-2 rounded hover:bg-danger-700 dark:bg-danger-500 dark:hover:bg-danger-600"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     {t('clientPortal.downloadPdf')}

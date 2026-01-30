@@ -40,7 +40,7 @@ export default function WorkoutBuilder({ cycleId }: { cycleId: number }) {
 
   const fetchWorkoutPlan = async () => {
     try {
-      const response = await api.get(`/plan-cycles/${cycleId}/workout-plan/`);
+      const response = await api.get(`/plans/plan-cycles/${cycleId}/workout-plan/`);
       setWorkoutPlan(response.data);
     } catch (err: any) {
       if (err.response?.status === 404) {
@@ -63,7 +63,7 @@ export default function WorkoutBuilder({ cycleId }: { cycleId: number }) {
   const handleCreateWorkoutPlan = async () => {
     try {
       setLoading(true);
-      await api.post(`/plan-cycles/${cycleId}/workout-plan/`, {
+      await api.post(`/plans/plan-cycles/${cycleId}/workout-plan/`, {
         title: `Workout Plan for Cycle ${cycleId}`,
       });
       await fetchWorkoutPlan();
@@ -105,9 +105,9 @@ export default function WorkoutBuilder({ cycleId }: { cycleId: number }) {
 
     try {
       if (editingEntry && editingEntry.id) {
-        await api.patch(`/training-entries/${editingEntry.id}/`, entryData);
+        await api.patch(`/plans/training-entries/${editingEntry.id}/`, entryData);
       } else {
-        await api.post('/training-entries/', entryData);
+        await api.post('/plans/training-entries/', entryData);
       }
       setShowEntryForm(false);
       setEditingEntry(null);
@@ -122,7 +122,7 @@ export default function WorkoutBuilder({ cycleId }: { cycleId: number }) {
   const handleDeleteEntry = async (entryId: number) => {
     if (!confirm('Are you sure you want to delete this training entry?')) return;
     try {
-      await api.delete(`/training-entries/${entryId}/`);
+      await api.delete(`/plans/training-entries/${entryId}/`);
       await fetchWorkoutPlan();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to delete entry');

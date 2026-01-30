@@ -127,7 +127,7 @@ export default function DailyLog() {
         localStorage.removeItem('client_access_token')
         localStorage.removeItem('client_refresh_token')
         localStorage.removeItem('client_info')
-        navigate('/client/login')
+        navigate('/')
         return
       }
       toast.error(err.response?.data?.error || 'Error al cargar el registro')
@@ -218,7 +218,7 @@ export default function DailyLog() {
     localStorage.removeItem('client_refresh_token')
     localStorage.removeItem('client_info')
     delete (api.defaults.headers as any).common?.['Authorization']
-    navigate('/client/login')
+    navigate('/')
   }
 
   return (

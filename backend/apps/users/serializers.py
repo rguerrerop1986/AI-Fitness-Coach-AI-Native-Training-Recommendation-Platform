@@ -57,9 +57,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class ClientTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Custom token serializer for clients that validates client role and linked Client profile."""
+    """Custom token serializer for clients that validates client role and linked Client profile.
+    Accepts email in the username field: if input contains '@', look up User by email (client only).
+    """
     
     def validate(self, attrs):
+        username_or_email = (attrs.get('username') or '').strip()
+        if '@' in username_or_email:
+            try:
+                user = User.objects.get(email__iexact=username_or_email, role='client')
+                attrs = {**attrs, 'username': user.username}
+            except User.DoesNotExist:
+                pass
         # Call parent validation to authenticate user
         data = super().validate(attrs)
         

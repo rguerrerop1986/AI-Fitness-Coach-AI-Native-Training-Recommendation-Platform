@@ -38,10 +38,7 @@
     "invalidCredentials": "Invalid credentials",
     "welcome": "Welcome",
     "loginTitle": "Login to Fitness Coach",
-    "loginSubtitle": "Access your coach dashboard",
-    "demoCredentials": "Demo credentials",
-    "coachDemo": "Coach: coach / demo123",
-    "assistantDemo": "Assistant: assistant / demo123"
+    "loginSubtitle": "Access your coach dashboard"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -53,6 +50,13 @@
     "appointments": "Appointments",
     "reports": "Reports",
     "settings": "Settings"
+  },
+  "landing": {
+    "title": "Choose your access type",
+    "coach": "I'm a Coach",
+    "client": "I'm a Client",
+    "coachDescription": "Access the coach dashboard to manage clients, plans and check-ins.",
+    "clientDescription": "Access your personal plan, appointments and daily log."
   },
   "theme": {
     "switchToLight": "Switch to light theme",
@@ -299,7 +303,14 @@
     "noMeals": "No meals defined in this plan.",
     "noExercises": "No exercises defined in this plan.",
     "myCurrentPlan": "My Current Plan",
-    "daysLabel": "days"
+    "daysLabel": "days",
+    "status": "Status",
+    "statusDraft": "Draft",
+    "statusSaved": "Saved",
+    "statusPublished": "Published",
+    "savePlan": "Save plan",
+    "publishPlan": "Publish plan",
+    "publishPlanDisabled": "Add diet plan and workout plan with at least one meal and one training entry to publish."
   },
   "foods": {
     "title": "Foods",
@@ -362,8 +373,9 @@
   "clientPortal": {
     "title": "Client Portal",
     "subtitle": "Access your personalized fitness plans",
-    "username": "Username",
-    "usernamePlaceholder": "Enter your username",
+    "username": "Email",
+    "usernamePlaceholder": "your@email.com",
+    "loginEmailHint": "Use the email your coach has on file",
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
     "signIn": "Sign In",
@@ -383,6 +395,7 @@
     "kcal": "kcal",
     "assigned": "Assigned",
     "downloadPdf": "Download PDF",
+    "viewPlan": "View my plan",
     "noDietPlan": "No diet plan assigned yet",
     "noWorkoutPlan": "No workout plan assigned yet",
     "contactCoach": "Contact your coach to get started",
@@ -400,6 +413,7 @@
     "weight": "Weight",
     "rest": "Rest",
     "noActivePlan": "No active plan found. Contact your coach.",
+    "noPublishedPlan": "Your coach has not published your plan yet.",
     "dashboardLoadFailed": "Failed to load dashboard data",
     "downloadPdfFailed": "Failed to download PDF"
   }

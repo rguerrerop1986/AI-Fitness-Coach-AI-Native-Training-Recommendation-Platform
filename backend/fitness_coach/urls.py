@@ -14,7 +14,7 @@ urlpatterns = [
     path('api/', include('apps.users.urls')),
     path('api/', include('apps.clients.urls')),
     path('api/', include('apps.catalogs.urls')),
-    path('api/', include('apps.plans.urls')),
+    path('api/plans/', include('apps.plans.urls')),
     path('api/tracking/', include('apps.tracking.urls')),
     path('api/', include('apps.appointments.urls')),
     path('api/client/', include('apps.client_portal.urls')),

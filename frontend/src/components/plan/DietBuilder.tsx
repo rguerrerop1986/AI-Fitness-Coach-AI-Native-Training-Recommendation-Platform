@@ -37,12 +37,12 @@ export default function DietBuilder({ cycleId }: { cycleId: number }) {
 
   const fetchDietPlan = async () => {
     try {
-      const response = await api.get(`/plan-cycles/${cycleId}/diet-plan/`);
+      const response = await api.get(`/plans/plan-cycles/${cycleId}/diet-plan/`);
       const plan = response.data as DietPlan;
 
       // Refrescar meals directamente desde el endpoint de meals para evitar desincronizaciones
       try {
-        const mealsResp = await api.get(`/meals/?diet_plan=${plan.id}`);
+        const mealsResp = await api.get(`/plans/meals/?diet_plan=${plan.id}`);
         const meals = mealsResp.data.results || mealsResp.data;
         plan.meals = Array.isArray(meals) ? meals : [];
         console.log('Fetched meals:', plan.meals);
@@ -66,7 +66,7 @@ export default function DietBuilder({ cycleId }: { cycleId: number }) {
   const handleCreateDietPlan = async () => {
     try {
       setLoading(true);
-      await api.post(`/plan-cycles/${cycleId}/diet-plan/`, {
+      await api.post(`/plans/plan-cycles/${cycleId}/diet-plan/`, {
         title: `Diet Plan for Cycle ${cycleId}`,
       });
       await fetchDietPlan();
@@ -98,9 +98,9 @@ export default function DietBuilder({ cycleId }: { cycleId: number }) {
     console.log('Sending meal data:', mealData);
     try {
       if (editingMeal && editingMeal.id) {
-        await api.patch(`/meals/${editingMeal.id}/`, mealData);
+        await api.patch(`/plans/meals/${editingMeal.id}/`, mealData);
       } else {
-        await api.post(`/plan-cycles/${cycleId}/diet-plan/meals/`, mealData);
+        await api.post(`/plans/plan-cycles/${cycleId}/diet-plan/meals/`, mealData);
       }
       setShowMealForm(false);
       setEditingMeal(null);
@@ -140,7 +140,7 @@ export default function DietBuilder({ cycleId }: { cycleId: number }) {
   const handleDeleteMeal = async (mealId: number) => {
     if (!confirm('Are you sure you want to delete this meal?')) return;
     try {
-      await api.delete(`/meals/${mealId}/`);
+      await api.delete(`/plans/meals/${mealId}/`);
       await fetchDietPlan();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to delete meal');

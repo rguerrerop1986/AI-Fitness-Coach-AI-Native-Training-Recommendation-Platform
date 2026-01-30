@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import ClientAccessLog
 from apps.clients.models import Client, Measurement
-from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
+from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
 
 
 class ClientDashboardSerializer(serializers.ModelSerializer):
@@ -35,11 +35,26 @@ class ClientDashboardSerializer(serializers.ModelSerializer):
         return None
     
     def get_active_diet_plan(self, obj):
+        # Prefer published PlanCycle (same source as "Mi plan")
+        cycle = PlanCycle.objects.filter(
+            client=obj,
+            status=PlanCycle.Status.PUBLISHED
+        ).order_by('-start_date').first()
+        if cycle and hasattr(cycle, 'diet_plan') and cycle.diet_plan:
+            dp = cycle.diet_plan
+            return {
+                'id': dp.id,
+                'title': dp.title or '',
+                'goal': dp.goal or '',
+                'daily_calories': dp.daily_calories,
+                'version': dp.version,
+                'assigned_date': cycle.start_date,
+            }
+        # Fallback: legacy PlanAssignment
         active_assignment = obj.planassignment_set.filter(
             plan_type='diet',
             is_active=True
         ).first()
-        
         if active_assignment and active_assignment.diet_plan:
             return {
                 'id': active_assignment.diet_plan.id,
@@ -50,13 +65,27 @@ class ClientDashboardSerializer(serializers.ModelSerializer):
                 'assigned_date': active_assignment.start_date,
             }
         return None
-    
+
     def get_active_workout_plan(self, obj):
+        # Prefer published PlanCycle (same source as "Mi plan")
+        cycle = PlanCycle.objects.filter(
+            client=obj,
+            status=PlanCycle.Status.PUBLISHED
+        ).order_by('-start_date').first()
+        if cycle and hasattr(cycle, 'workout_plan') and cycle.workout_plan:
+            wp = cycle.workout_plan
+            return {
+                'id': wp.id,
+                'title': wp.title or '',
+                'goal': wp.goal or '',
+                'version': wp.version,
+                'assigned_date': cycle.start_date,
+            }
+        # Fallback: legacy PlanAssignment
         active_assignment = obj.planassignment_set.filter(
             plan_type='workout',
             is_active=True
         ).first()
-        
         if active_assignment and active_assignment.workout_plan:
             return {
                 'id': active_assignment.workout_plan.id,

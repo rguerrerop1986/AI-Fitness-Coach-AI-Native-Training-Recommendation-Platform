@@ -27,6 +27,8 @@ class PlanCycle(models.Model):
     
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
+        SAVED = 'saved', 'Saved'
+        PUBLISHED = 'published', 'Published'
         ACTIVE = 'active', 'Active'
         COMPLETED = 'completed', 'Completed'
         CANCELLED = 'cancelled', 'Cancelled'
@@ -56,7 +58,7 @@ class PlanCycle(models.Model):
         blank=True
     )
     status = models.CharField(
-        max_length=10,
+        max_length=12,
         choices=Status.choices,
         default=Status.DRAFT
     )

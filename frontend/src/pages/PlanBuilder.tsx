@@ -24,6 +24,9 @@ interface PlanCycle {
   plan_pdf?: string | null;
   diet_plan?: any;
   workout_plan?: any;
+  has_diet_plan?: boolean;
+  has_workout_plan?: boolean;
+  can_publish?: boolean;
 }
 
 export default function PlanBuilder() {
@@ -56,7 +59,7 @@ export default function PlanBuilder() {
   const fetchCycle = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/plan-cycles/${cycleId}/`);
+      const response = await api.get(`/plans/plan-cycles/${cycleId}/`);
       setCycle(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || t('errors.failedToFetch'));
@@ -87,7 +90,7 @@ export default function PlanBuilder() {
         data.goal = goal;
       }
 
-      const response = await api.post('/plan-cycles/', data);
+      const response = await api.post('/plans/plan-cycles/', data);
       navigate(`/plans/${response.data.id}/builder`);
     } catch (err: any) {
       if (err.response?.data) {
@@ -114,7 +117,7 @@ export default function PlanBuilder() {
       setLoading(true);
       // Backend route is /api/plan-cycles/<pk>/generate-pdf/
       // Our axios client already prefixes with /api, so we use /plan-cycles/ here.
-      await api.post(`/plan-cycles/${cycleId}/generate-pdf/`);
+      await api.post(`/plans/plan-cycles/${cycleId}/generate-pdf/`);
       console.log('PDF generated successfully!');
       
       // PDF generated - UI will show download button
@@ -126,10 +129,32 @@ export default function PlanBuilder() {
     }
   };
 
+  const setPlanStatus = async (newStatus: 'saved' | 'published') => {
+    if (!cycleId) return;
+    try {
+      setError(null);
+      setLoading(true);
+      await api.post(`/plans/plan-cycles/${cycleId}/set-status/`, { status: newStatus });
+      await fetchCycle();
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.response?.data?.detail || t('errors.failedToUpdate');
+      setError(Array.isArray(msg) ? msg.join(' ') : msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusLabel = (s: string) => {
+    if (s === 'draft') return t('plans.statusDraft');
+    if (s === 'saved') return t('plans.statusSaved');
+    if (s === 'published') return t('plans.statusPublished');
+    return s;
+  };
+
   const handleDownloadPDF = async () => {
     if (!cycleId || !cycle) return;
     try {
-      const url = `/plan-cycles/${cycleId}/download-pdf/`;
+      const url = `/plans/plan-cycles/${cycleId}/download-pdf/`;
       const fallbackName = `Plan_${cycle.client_name.replace(/\s+/g, '')}_${cycle.start_date}_${cycle.end_date}.pdf`;
 
       const res = await api.get(url, { responseType: 'blob' });
@@ -178,12 +203,56 @@ export default function PlanBuilder() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('plans.planBuilder')}</h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('plans.planBuilder')}</h1>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      cycle.status === 'published'
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                        : cycle.status === 'saved'
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {statusLabel(cycle.status)}
+                  </span>
+                </div>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                   {cycle.client_name} • {t('plans.durationDays', { count: cycle.duration_days })} • {cycle.start_date} - {cycle.end_date}
                 </p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {(cycle.status === 'draft' || cycle.status === 'saved') && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPlanStatus('saved')}
+                      disabled={loading}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      {t('plans.savePlan')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlanStatus('published')}
+                      disabled={loading || cycle.can_publish === false}
+                      title={cycle.can_publish === false ? t('plans.publishPlanDisabled') : undefined}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('plans.publishPlan')}
+                    </button>
+                  </>
+                )}
+                {cycle.status === 'published' && (
+                  <button
+                    type="button"
+                    onClick={() => setPlanStatus('saved')}
+                    disabled={loading}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {t('plans.savePlan')}
+                  </button>
+                )}
                 <button
                   onClick={handleGeneratePDF}
                   disabled={loading}

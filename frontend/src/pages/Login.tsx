@@ -114,18 +114,6 @@ export default function Login() {
               {loading ? t('common.loading') : t('auth.loginButton')}
             </button>
           </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('auth.demoCredentials')}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-              {t('auth.coachDemo')}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500">
-              {t('auth.assistantDemo')}
-            </p>
-          </div>
         </form>
       </div>
     </div>

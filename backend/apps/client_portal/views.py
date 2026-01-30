@@ -54,14 +54,15 @@ class ClientCurrentPlanView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Only PUBLISHED plans are visible to clients
         cycle = PlanCycle.objects.filter(
             client=client,
-            status=PlanCycle.Status.ACTIVE
-        ).first()
+            status=PlanCycle.Status.PUBLISHED
+        ).order_by('-start_date').first()
         
         if not cycle:
             return Response(
-                {'error': 'No active cycle found. Contact your coach.'},
+                {'error': 'No published plan found. Your coach has not published your plan yet.'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
@@ -82,14 +83,15 @@ class ClientPlanPDFView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Only PUBLISHED plans are visible to clients
         cycle = PlanCycle.objects.filter(
             client=client,
-            status=PlanCycle.Status.ACTIVE
-        ).first()
+            status=PlanCycle.Status.PUBLISHED
+        ).order_by('-start_date').first()
         
         if not cycle:
             return Response(
-                {'error': 'No active cycle found.'},
+                {'error': 'No published plan found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
         

@@ -59,10 +59,13 @@ export default function ClientPlan() {
   const fetchPlan = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await api.get('/client/current-plan/');
       setPlan(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || t('clientPortal.noActivePlan'));
+      const msg = err.response?.data?.error || (err.response?.status === 404 ? t('clientPortal.noPublishedPlan') : t('clientPortal.noActivePlan'));
+      setError(msg);
+      setPlan(null);
     } finally {
       setLoading(false);
     }
@@ -114,12 +117,24 @@ export default function ClientPlan() {
   }
 
   if (error || !plan) {
+    const isNoPlan = !plan && (error === t('clientPortal.noPublishedPlan') || error?.includes('published'));
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 px-4 py-3 rounded">
-            {error || t('clientPortal.noActivePlan')}
-          </div>
+          {isNoPlan ? (
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                {t('clientPortal.noPublishedPlan')}
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+                {t('clientPortal.contactCoach')}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 px-4 py-3 rounded">
+              {error || t('clientPortal.noActivePlan')}
+            </div>
+          )}
         </div>
       </div>
     );

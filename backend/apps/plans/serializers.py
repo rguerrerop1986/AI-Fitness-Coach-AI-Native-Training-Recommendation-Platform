@@ -113,6 +113,9 @@ class PlanCycleSerializer(serializers.ModelSerializer):
     checkin_count = serializers.SerializerMethodField()
     is_active = serializers.BooleanField(read_only=True)
     duration_days = serializers.IntegerField(read_only=True)
+    has_diet_plan = serializers.SerializerMethodField()
+    has_workout_plan = serializers.SerializerMethodField()
+    can_publish = serializers.SerializerMethodField()
     
     class Meta:
         model = PlanCycle
@@ -120,15 +123,34 @@ class PlanCycleSerializer(serializers.ModelSerializer):
             'id', 'client', 'client_name', 'coach', 'coach_name',
             'start_date', 'end_date', 'cadence', 'goal', 'status',
             'notes', 'is_active', 'duration_days', 'assignment_count',
-            'checkin_count', 'plan_pdf', 'created_at', 'updated_at'
+            'checkin_count', 'plan_pdf', 'has_diet_plan', 'has_workout_plan', 'can_publish',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'plan_pdf', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'status', 'plan_pdf', 'created_at', 'updated_at']
     
     def get_assignment_count(self, obj):
         return obj.assignments.count()
     
     def get_checkin_count(self, obj):
         return obj.checkins.count()
+    
+    def get_has_diet_plan(self, obj):
+        return hasattr(obj, 'diet_plan') and obj.diet_plan is not None
+    
+    def get_has_workout_plan(self, obj):
+        return hasattr(obj, 'workout_plan') and obj.workout_plan is not None
+    
+    def get_can_publish(self, obj):
+        from .models import TrainingEntry
+        if not (hasattr(obj, 'diet_plan') and obj.diet_plan):
+            return False
+        if not (hasattr(obj, 'workout_plan') and obj.workout_plan):
+            return False
+        if not obj.diet_plan.meals.exists():
+            return False
+        has_entries = TrainingEntry.objects.filter(workout_plan=obj.workout_plan).exists()
+        has_days = obj.workout_plan.workout_days.exists()
+        return has_entries or has_days
 
 
 class PlanCycleDetailSerializer(PlanCycleSerializer):

@@ -58,7 +58,7 @@ class PlanCycleAPITest(TestCase):
             'status': 'draft',
         }
         
-        response = self.client.post('/api/plan-cycles/', data, format='json')
+        response = self.client.post('/api/plans/plan-cycles/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(PlanCycle.objects.count(), 1)
         
@@ -82,7 +82,7 @@ class PlanCycleAPITest(TestCase):
             'title': 'Test Diet Plan',
         }
         
-        response = self.client.post(f'/api/plan-cycles/{cycle.id}/diet-plan/', data, format='json')
+        response = self.client.post(f'/api/plans/plan-cycles/{cycle.id}/diet-plan/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         cycle.refresh_from_db()
@@ -110,7 +110,7 @@ class PlanCycleAPITest(TestCase):
             'order': 0,
         }
         
-        response = self.client.post(f'/api/plan-cycles/{cycle.id}/diet-plan/meals/', data, format='json')
+        response = self.client.post(f'/api/plans/plan-cycles/{cycle.id}/diet-plan/meals/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Meal.objects.count(), 1)
         
@@ -129,20 +129,20 @@ class PlanCycleAPITest(TestCase):
         
         self.client.force_authenticate(user=self.coach)
         
-        response = self.client.post(f'/api/plan-cycles/{cycle.id}/generate-pdf/')
+        response = self.client.post(f'/api/plans/plan-cycles/{cycle.id}/generate-pdf/')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         cycle.refresh_from_db()
         self.assertIsNotNone(cycle.plan_pdf)
     
     def test_client_can_download_own_pdf(self):
-        """Test that client can download PDF for their own cycle."""
+        """Test that client can download PDF for their own published cycle."""
         cycle = PlanCycle.objects.create(
             client=self.client_obj,
             coach=self.coach,
             start_date=date.today(),
             end_date=date.today() + timedelta(days=14),
-            status=PlanCycle.Status.ACTIVE,
+            status=PlanCycle.Status.PUBLISHED,
         )
         
         # Generate PDF first
@@ -188,3 +188,104 @@ class PlanCycleAPITest(TestCase):
         response = self.client.get(f'/api/plans/plan-cycles/{cycle.id}/download-pdf/')
         # Should be 403 or 404 depending on permissions
         self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+    def test_coach_can_set_status_to_saved(self):
+        """Test that coach can set plan status to saved."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.DRAFT,
+        )
+        self.client.force_authenticate(user=self.coach)
+        response = self.client.post(
+            f'/api/plans/plan-cycles/{cycle.id}/set-status/',
+            {'status': 'saved'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cycle.refresh_from_db()
+        self.assertEqual(cycle.status, PlanCycle.Status.SAVED)
+
+    def test_coach_can_set_status_to_published_when_plan_complete(self):
+        """Test that coach can publish when diet and workout exist and are non-empty."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.DRAFT,
+        )
+        diet_plan = DietPlan.objects.create(
+            plan_cycle=cycle,
+            title='Test Diet',
+            created_by=self.coach,
+        )
+        Meal.objects.create(
+            diet_plan=diet_plan,
+            meal_type='breakfast',
+            name='Breakfast',
+            order=0,
+        )
+        from .models import WorkoutPlan, WorkoutDay
+        workout_plan = WorkoutPlan.objects.create(
+            plan_cycle=cycle,
+            title='Test Workout',
+            created_by=self.coach,
+        )
+        WorkoutDay.objects.create(
+            workout_plan=workout_plan,
+            day_of_week='monday',
+            name='Day 1',
+            order=0,
+        )
+        self.client.force_authenticate(user=self.coach)
+        response = self.client.post(
+            f'/api/plans/plan-cycles/{cycle.id}/set-status/',
+            {'status': 'published'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cycle.refresh_from_db()
+        self.assertEqual(cycle.status, PlanCycle.Status.PUBLISHED)
+
+    def test_coach_cannot_publish_without_diet_plan(self):
+        """Test that coach cannot publish when diet plan is missing."""
+        cycle = PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.DRAFT,
+        )
+        from .models import WorkoutPlan, WorkoutDay
+        WorkoutPlan.objects.create(
+            plan_cycle=cycle,
+            title='Test Workout',
+            created_by=self.coach,
+        )
+        self.client.force_authenticate(user=self.coach)
+        response = self.client.post(
+            f'/api/plans/plan-cycles/{cycle.id}/set-status/',
+            {'status': 'published'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('diet', response.data.get('error', '').lower())
+        cycle.refresh_from_db()
+        self.assertEqual(cycle.status, PlanCycle.Status.DRAFT)
+
+    def test_client_sees_only_published_plan(self):
+        """Test that client current-plan returns 404 when no published cycle."""
+        PlanCycle.objects.create(
+            client=self.client_obj,
+            coach=self.coach,
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=14),
+            status=PlanCycle.Status.DRAFT,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        response = self.client.get('/api/client/current-plan/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('published', response.data.get('error', '').lower())

@@ -117,6 +117,63 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+    @action(detail=True, methods=['post'], url_path='set-status')
+    def set_status(self, request, pk=None):
+        """
+        Update plan cycle status (coach only).
+        Allowed transitions: DRAFT -> SAVED, DRAFT -> PUBLISHED, SAVED -> PUBLISHED.
+        Publishing requires diet plan and workout plan to exist and be non-empty.
+        """
+        cycle = self.get_object()
+        new_status = request.data.get('status')
+        if not new_status:
+            return Response(
+                {'error': 'status is required (saved or published)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        new_status = str(new_status).lower().strip()
+        if new_status not in (PlanCycle.Status.SAVED, PlanCycle.Status.PUBLISHED):
+            return Response(
+                {'error': 'status must be "saved" or "published"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        current = cycle.status
+        if current not in (PlanCycle.Status.DRAFT, PlanCycle.Status.SAVED, PlanCycle.Status.PUBLISHED):
+            return Response(
+                {'error': f'Cannot change status from {current}. Only draft/saved plans can be updated.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if new_status == PlanCycle.Status.PUBLISHED:
+            # Require diet plan and workout plan to exist and be non-empty
+            has_diet = hasattr(cycle, 'diet_plan') and cycle.diet_plan is not None
+            has_workout = hasattr(cycle, 'workout_plan') and cycle.workout_plan is not None
+            if not has_diet or not has_workout:
+                return Response(
+                    {
+                        'error': 'Cannot publish: plan must have both a diet plan and a workout plan.',
+                        'has_diet_plan': has_diet,
+                        'has_workout_plan': has_workout,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            diet_empty = not cycle.diet_plan.meals.exists()
+            workout_has_entries = TrainingEntry.objects.filter(workout_plan=cycle.workout_plan).exists()
+            workout_has_days = cycle.workout_plan.workout_days.exists() if has_workout else False
+            if diet_empty:
+                return Response(
+                    {'error': 'Cannot publish: diet plan must have at least one meal.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not workout_has_entries and not workout_has_days:
+                return Response(
+                    {'error': 'Cannot publish: workout plan must have at least one workout day or training entry.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        cycle.status = new_status
+        cycle.save(update_fields=['status', 'updated_at'])
+        serializer = self.get_serializer(cycle)
+        return Response(serializer.data)
+    
     @action(detail=True, methods=['get', 'post', 'patch'], url_path='diet-plan')
     def diet_plan(self, request, pk=None):
         """Nested endpoint for diet plan of a cycle."""
@@ -325,7 +382,7 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     'message': 'PDF generated successfully',
-                    'download_url': f'/api/plan-cycles/{cycle.id}/download-pdf/'
+                    'download_url': f'/api/plans/plan-cycles/{cycle.id}/download-pdf/'
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -366,7 +423,7 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def current(self, request):
-        """Get current active cycle for a client (coach view)."""
+        """Get current published cycle for a client (coach view)."""
         client_id = request.query_params.get('client')
         if not client_id:
             return Response(
@@ -377,12 +434,12 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
         try:
             cycle = PlanCycle.objects.filter(
                 client_id=client_id,
-                status=PlanCycle.Status.ACTIVE
-            ).first()
+                status=PlanCycle.Status.PUBLISHED
+            ).order_by('-start_date').first()
             
             if not cycle:
                 return Response(
-                    {'error': 'No active cycle found for this client'},
+                    {'error': 'No published cycle found for this client'},
                     status=status.HTTP_404_NOT_FOUND
                 )
             
@@ -397,12 +454,12 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
 
 class ClientCurrentCycleView(APIView):
     """
-    API view for clients to view their current active PlanCycle.
+    API view for clients to view their current published PlanCycle.
     """
     permission_classes = [IsAuthenticated, IsClient]
     
     def get(self, request):
-        """Return current active cycle or 404."""
+        """Return current published cycle or 404."""
         client = get_client_from_user(request.user)
         if not client:
             return Response(
@@ -412,12 +469,12 @@ class ClientCurrentCycleView(APIView):
         
         cycle = PlanCycle.objects.filter(
             client=client,
-            status=PlanCycle.Status.ACTIVE
-        ).first()
+            status=PlanCycle.Status.PUBLISHED
+        ).order_by('-start_date').first()
         
         if not cycle:
             return Response(
-                {'error': 'No active cycle found. Contact your coach.'},
+                {'error': 'No published plan found. Your coach has not published your plan yet.'},
                 status=status.HTTP_404_NOT_FOUND
             )
         

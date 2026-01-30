@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../contexts/ThemeContext'
+import { useClientAuth } from '../contexts/ClientAuthContext'
 import { Eye, EyeOff, User, Lock, Moon, Sun } from 'lucide-react'
-import { api } from '../lib/api'
 
 export default function ClientLogin() {
   const { theme, toggleTheme } = useTheme()
+  const { login } = useClientAuth()
   const { t, i18n: i18nInstance } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -21,27 +22,11 @@ export default function ClientLogin() {
     setError('')
 
     try {
-      // Use unified auth endpoint with client-specific serializer
-      const response = await api.post('/auth/token/client/', {
-        username,
-        password
-      })
-
-      const { access, refresh, client } = response.data
-
-      // Store tokens and client info
-      localStorage.setItem('client_access_token', access)
-      localStorage.setItem('client_refresh_token', refresh)
-      localStorage.setItem('client_info', JSON.stringify(client))
-
-      // Set authorization header for future requests
-      api.defaults.headers.common['Authorization'] = `Bearer ${access}`
-
-      // Redirect to client dashboard
+      await login(username, password)
       navigate('/client/dashboard')
-    } catch (error: any) {
-      console.error('Login error:', error)
-      setError(error.response?.data?.error || error.response?.data?.detail || t('clientPortal.loginFailed'))
+    } catch (err: any) {
+      console.error('Login error:', err)
+      setError(err.response?.data?.error || err.response?.data?.detail || t('clientPortal.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -102,6 +87,9 @@ export default function ClientLogin() {
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('clientPortal.username')}
               </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-1">
+                {t('clientPortal.loginEmailHint')}
+              </p>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
@@ -109,7 +97,8 @@ export default function ClientLogin() {
                 <input
                   id="username"
                   name="username"
-                  type="text"
+                  type="email"
+                  autoComplete="email"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}

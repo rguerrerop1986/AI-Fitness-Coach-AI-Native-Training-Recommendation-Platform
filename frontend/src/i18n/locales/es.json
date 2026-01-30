@@ -54,6 +54,13 @@
     "reports": "Reportes",
     "settings": "Configuración"
   },
+  "landing": {
+    "title": "Elige tu tipo de acceso",
+    "coach": "Soy Coach",
+    "client": "Soy Cliente",
+    "coachDescription": "Accede al panel del coach para gestionar clientes, planes y check-ins.",
+    "clientDescription": "Accede a tu plan personal, citas y registro diario."
+  },
   "theme": {
     "switchToLight": "Cambiar a tema claro",
     "switchToDark": "Cambiar a tema oscuro"
@@ -299,7 +306,14 @@
     "noMeals": "No hay comidas definidas en este plan.",
     "noExercises": "No hay ejercicios definidos en este plan.",
     "myCurrentPlan": "Mi Plan Actual",
-    "daysLabel": "días"
+    "daysLabel": "días",
+    "status": "Estado",
+    "statusDraft": "Borrador",
+    "statusSaved": "Guardado",
+    "statusPublished": "Publicado",
+    "savePlan": "Guardar plan",
+    "publishPlan": "Publicar plan",
+    "publishPlanDisabled": "Añade plan de dieta y plan de entrenamiento con al menos una comida y una entrada de entrenamiento para publicar."
   },
   "foods": {
     "title": "Alimentos",
@@ -362,8 +376,9 @@
   "clientPortal": {
     "title": "Portal del Cliente",
     "subtitle": "Accede a tus planes de entrenamiento personalizados",
-    "username": "Usuario",
-    "usernamePlaceholder": "Introduce tu usuario",
+    "username": "Correo electrónico",
+    "usernamePlaceholder": "tu@correo.com",
+    "loginEmailHint": "Usa el correo que tiene tu entrenador",
     "password": "Contraseña",
     "passwordPlaceholder": "Introduce tu contraseña",
     "signIn": "Iniciar sesión",
@@ -383,6 +398,7 @@
     "kcal": "kcal",
     "assigned": "Asignado",
     "downloadPdf": "Descargar PDF",
+    "viewPlan": "Ver mi plan",
     "noDietPlan": "Aún no tienes plan de dieta asignado",
     "noWorkoutPlan": "Aún no tienes plan de entrenamiento asignado",
     "contactCoach": "Contacta a tu entrenador para empezar",
@@ -400,6 +416,7 @@
     "weight": "Peso",
     "rest": "Descanso",
     "noActivePlan": "No hay plan activo. Contacta a tu entrenador.",
+    "noPublishedPlan": "Tu coach aún no ha publicado tu plan.",
     "dashboardLoadFailed": "Error al cargar el panel",
     "downloadPdfFailed": "Error al descargar el PDF"
   }

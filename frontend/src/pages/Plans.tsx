@@ -28,7 +28,7 @@ export default function Plans() {
   const fetchCycles = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/plan-cycles/');
+      const response = await api.get('/plans/plan-cycles/');
       setCycles(response.data.results || response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || t('plans.fetchFailed'));
@@ -47,7 +47,7 @@ export default function Plans() {
     }
 
     try {
-      await api.delete(`/plan-cycles/${cycleId}/`);
+      await api.delete(`/plans/plan-cycles/${cycleId}/`);
       await fetchCycles();
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.response?.data?.message || t('plans.deleteFailed');

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -6,6 +6,7 @@ import RequireRole from './auth/RequireRole'
 import { useRole } from './auth/useRole'
 import { isCoach } from './auth/roles'
 import Login from './pages/Login'
+import RoleSelectPage from './pages/RoleSelectPage'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import CreateClient from './pages/CreateClient'
@@ -69,17 +70,26 @@ function ClientProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Renders role select at "/" or protected layout + outlet for /dashboard, /clients, etc. */
+function RootWrapper() {
+  const location = useLocation()
+  const isLanding = location.pathname === '/'
+  if (isLanding) {
+    return <Outlet />
+  }
+  return (
+    <ProtectedRoute>
+      <Layout />
+    </ProtectedRoute>
+  )
+}
+
 function AppRoutes() {
   return (
     <Routes>
-      {/* Coach/Admin Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout />
-        </ProtectedRoute>
-      }>
-        <Route index element={<Navigate to="/dashboard" replace />} />
+      {/* Landing: role selector at "/" */}
+      <Route path="/" element={<RootWrapper />}>
+        <Route index element={<RoleSelectPage />} />
         <Route path="dashboard" element={<Dashboard />} />
         {/* Coach-only routes */}
         <Route path="clients" element={
@@ -147,6 +157,9 @@ function AppRoutes() {
         <Route path="checkins" element={<CheckIns />} />
         <Route path="appointments" element={<Appointments />} />
       </Route>
+
+      {/* Coach login (standalone, backward compatible) */}
+      <Route path="/login" element={<Login />} />
 
       {/* Client Portal Routes */}
       <Route path="/client/login" element={<ClientLogin />} />
