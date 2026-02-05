@@ -9,7 +9,6 @@ import {
   TrendingUp, 
   Download, 
   LogOut,
-  Calendar,
   Scale,
   Target,
   Clock,
@@ -181,6 +180,13 @@ export default function ClientDashboard() {
                 ) : (
                   <Moon className="h-5 w-5" />
                 )}
+              </button>
+              <button
+                onClick={() => navigate('/client/rutina-de-hoy')}
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                <Dumbbell className="h-5 w-5 mr-2" />
+                Rutina de hoy
               </button>
               <button
                 onClick={() => navigate('/client/daily-log')}

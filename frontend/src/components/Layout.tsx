@@ -17,7 +17,8 @@ import {
   Clock,
   Moon,
   Sun,
-  Globe
+  Globe,
+  Activity
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -41,6 +42,7 @@ export default function Layout() {
     { name: t('navigation.clients'), href: '/clients', icon: Users, roles: ['coach', 'assistant'] as UserRole[] },
     { name: t('navigation.foods'), href: '/foods', icon: Apple, roles: ['coach', 'assistant'] as UserRole[] },
     { name: t('navigation.exercises'), href: '/exercises', icon: Dumbbell, roles: ['coach', 'assistant'] as UserRole[] },
+    { name: 'AI Coach', href: '/ai-coach-dashboard', icon: Activity, roles: ['coach', 'assistant'] as UserRole[] },
   ]
 
   // Filter navigation based on current role

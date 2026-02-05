@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Users, Apple, Dumbbell, TrendingUp, Calendar, AlertTriangle } from 'lucide-react'
-import { api } from '../lib/api'
 
 interface DashboardStats {
   total_clients: number

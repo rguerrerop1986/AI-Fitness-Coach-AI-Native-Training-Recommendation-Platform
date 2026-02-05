@@ -238,7 +238,8 @@ All authentication uses Django User accounts with SimpleJWT tokens:
   - List/Create: `/api/plan-cycles/`
   - Detail: `/api/plan-cycles/{id}/`
   - Current cycle: `/api/plan-cycles/current/?client={id}` (coach)
-- **Check-ins**: `/api/checkins/` (coach only)
+- **Check-ins**: `/api/check-ins/` (global list) and `/api/clients/{id}/check-ins/` (nested, coach only)
+  - **ESTRUCTURAL**: New check-ins use the structural format (pliegues, diámetros, perímetros, RC). POST accepts a nested payload; GET returns flat fields including `rc_1min` (alias for `rc_1min_bpm`). See [Check-in ESTRUCTURAL API](#check-in-estructural-api) below.
 - **Reports**: `/api/reports/progress/` (coach only)
 - **Client Portal** (all endpoints require client role):
   - Dashboard: `/api/client/dashboard/` (returns own data, inferred from token)
@@ -252,6 +253,47 @@ All authentication uses Django User accounts with SimpleJWT tokens:
   - Mark Paid: `/api/appointments/{id}/mark_paid/` (requires payment_method in body)
   - Cancel: `/api/appointments/{id}/cancel/`
   - Filter by client: `/api/appointments/?client={id}`
+
+### Check-in ESTRUCTURAL API
+
+Seguimientos tipo ESTRUCTURAL (hoja Excel) se crean con `POST /api/clients/{client_id}/check-ins/` enviando un payload anidado. El backend persiste promedios de pliegues y diámetros y valida que todos los campos obligatorios estén presentes.
+
+**Ejemplo de request (POST):**
+
+```json
+{
+  "client_id": 123,
+  "date": "2026-02-04",
+  "weight_kg": 106.4,
+  "height_m": 1.85,
+  "rc_termino": 140,
+  "rc_1min": 110,
+  "skinfolds": {
+    "triceps": { "m1": 10.0, "m2": 10.5, "m3": 10.2, "avg": 10.23 },
+    "subscapular": { "m1": 12.0, "m2": 12.1, "m3": 12.2, "avg": 12.10 },
+    "suprailiac": { "m1": 14.0, "m2": 14.2, "m3": 14.1, "avg": 14.10 },
+    "abdominal": { "m1": 18.0, "m2": 18.5, "m3": 18.2, "avg": 18.23 },
+    "ant_thigh": { "m1": 16.0, "m2": 16.3, "m3": 16.1, "avg": 16.13 },
+    "calf": { "m1": 9.0, "m2": 9.2, "m3": 9.1, "avg": 9.10 }
+  },
+  "diameters": {
+    "femoral": { "l": 9.0, "r": 9.1, "avg": 9.05 },
+    "humeral": { "l": 7.0, "r": 7.2, "avg": 7.10 },
+    "styloid": { "l": 5.0, "r": 5.1, "avg": 5.05 }
+  },
+  "perimeters": {
+    "waist": 107, "abdomen": 110, "calf": 35, "hip": 115, "chest": 116,
+    "arm": { "relaxed": 36, "flexed": 38 },
+    "thigh": { "relaxed": 55, "flexed": 57 }
+  },
+  "feedback": {
+    "rpe": 5, "fatigue": 5, "diet_adherence_pct": 80, "training_adherence_pct": 80,
+    "notes": "..."
+  }
+}
+```
+
+**Ejemplo de response (201 Created):** el cuerpo es el check-in serializado en formato plano (todos los campos del modelo, con `rc_1min` en lugar de `rc_1min_bpm`), por ejemplo `id`, `client`, `date`, `weight_kg`, `height_m`, `rc_termino`, `rc_1min`, `skinfold_triceps_1/2/3/avg`, `diameter_femoral_l/r/avg`, `perimeter_waist`, etc., más `rpe`, `fatigue`, `diet_adherence`, `workout_adherence`, `notes`, `created_at`, `updated_at`.
 
 ## Exercise Catalog & Training Entries
 

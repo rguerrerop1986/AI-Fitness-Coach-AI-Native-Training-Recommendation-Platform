@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { useTranslation } from 'react-i18next';
-import { Calendar, Plus, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, DollarSign } from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -35,8 +33,6 @@ interface Client {
 }
 
 export default function Appointments() {
-  const navigate = useNavigate();
-  const { t } = useTranslation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);

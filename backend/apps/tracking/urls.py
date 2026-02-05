@@ -11,5 +11,6 @@ router.register(r'training-logs', views.TrainingLogViewSet, basename='traininglo
 router.register(r'diet-logs', views.DietLogViewSet, basename='dietlog')
 
 urlpatterns = [
+    path('coach-dashboard/', views.CoachDashboardView.as_view(), name='coach-dashboard'),
     path('', include(router.urls)),
 ]

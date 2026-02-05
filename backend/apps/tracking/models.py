@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
@@ -13,6 +14,7 @@ class TrainingLog(models.Model):
         NOT_DONE = 'not_done', 'Not Done'
         PARTIAL = 'partial', 'Partial'
         DONE = 'done', 'Done'
+        SKIPPED = 'skipped', 'Skipped'
         REPLACED = 'replaced', 'Replaced'
         INJURY_STOP = 'injury_stop', 'Injury Stop'
         SICK = 'sick', 'Sick'
@@ -76,6 +78,17 @@ class TrainingLog(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(10)],
     )
     notes = models.TextField(blank=True)
+
+    # Recommendation engine fields (ML-ready; rules_v1 for MVP)
+    recommendation_version = models.CharField(max_length=50, default='rules_v1', blank=True)
+    recommendation_meta = models.JSONField(null=True, blank=True)
+    recommendation_confidence = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -205,12 +218,28 @@ class CheckIn(models.Model):
     )
     date = models.DateField()
     weight_kg = models.DecimalField(
-        max_digits=5, 
+        max_digits=5,
         decimal_places=1,
-        validators=[MinValueValidator(30), MaxValueValidator(300)],
-        null=True, 
-        blank=True
+        null=True,
+        blank=True,
     )
+    height_m = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Estatura en metros (ESTRUCTURAL)',
+    )
+    bmi = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Índice de Masa Corporal (calculado: weight_kg / height_m²)',
+    )
+    rc_termino = models.IntegerField(null=True, blank=True, help_text='Frecuencia cardíaca al término')
+    rc_1min_bpm = models.IntegerField(null=True, blank=True, help_text='Frecuencia cardíaca 1 minuto después (API: rc_1min)')
+    is_structural = models.BooleanField(default=True, help_text='Check-in tipo ESTRUCTURAL con pliegues/diámetros/perímetros')
     body_fat_pct = models.DecimalField(
         max_digits=4, 
         decimal_places=1,
@@ -254,12 +283,57 @@ class CheckIn(models.Model):
         blank=True
     )
     calf_cm = models.DecimalField(
-        max_digits=4, 
+        max_digits=4,
         decimal_places=1,
         validators=[MinValueValidator(20), MaxValueValidator(100)],
-        null=True, 
-        blank=True
+        null=True,
+        blank=True,
     )
+    # ---- ESTRUCTURAL: Pliegues (mm): 3 mediciones + promedio ----
+    skinfold_triceps_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_triceps_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_triceps_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_triceps_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_subscapular_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_subscapular_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_subscapular_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_subscapular_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_suprailiac_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_suprailiac_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_suprailiac_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_suprailiac_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_abdominal_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_abdominal_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_abdominal_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_abdominal_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_ant_thigh_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_ant_thigh_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_ant_thigh_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_ant_thigh_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_calf_1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_calf_2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_calf_3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    skinfold_calf_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # ---- ESTRUCTURAL: Diámetros (cm): izquierdo, derecho, promedio ----
+    diameter_femoral_l = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_femoral_r = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_femoral_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_humeral_l = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_humeral_r = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_humeral_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_styloid_l = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_styloid_r = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    diameter_styloid_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # ---- ESTRUCTURAL: Perímetros (cm) ----
+    perimeter_waist = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_abdomen = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_calf = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_hip = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_chest = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_arm_relaxed = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_arm_flexed = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_thigh_relaxed = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    perimeter_thigh_flexed = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     notes = models.TextField(blank=True)
     rpe = models.PositiveIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)],
@@ -308,9 +382,17 @@ class CheckIn(models.Model):
     def has_measurements(self):
         """Check if check-in has any body measurements."""
         return any([
-            self.weight_kg, self.body_fat_pct, self.chest_cm, 
-            self.waist_cm, self.hips_cm, self.bicep_cm, 
-            self.thigh_cm, self.calf_cm
+            self.weight_kg,
+            self.body_fat_pct,
+            self.chest_cm,
+            self.waist_cm,
+            self.hips_cm,
+            self.bicep_cm,
+            self.thigh_cm,
+            self.calf_cm,
+            self.skinfold_triceps_avg,
+            self.perimeter_waist,
+            self.diameter_femoral_avg,
         ])
     
     @property
@@ -324,7 +406,17 @@ class CheckIn(models.Model):
         return self.rpe is not None or self.fatigue is not None
     
     def save(self, *args, **kwargs):
-        """Auto-link to active PlanCycle if not set."""
+        """Auto-link to active PlanCycle if not set; recalc BMI from weight_kg and height_m."""
+        if self.weight_kg is not None and self.height_m is not None:
+            try:
+                h = float(self.height_m)
+                if h > 0:
+                    w = float(self.weight_kg)
+                    self.bmi = round(Decimal(str(w)) / (Decimal(str(h)) * Decimal(str(h))), 2)
+            except (TypeError, ValueError, ZeroDivisionError):
+                self.bmi = None
+        else:
+            self.bmi = None
         if not self.plan_cycle and self.client and self.date:
             try:
                 from apps.plans.models import PlanCycle
@@ -334,11 +426,8 @@ class CheckIn(models.Model):
                     start_date__lte=self.date,
                     end_date__gte=self.date
                 ).first()
-                
                 if active_cycle:
                     self.plan_cycle = active_cycle
             except Exception:
-                # If PlanCycle doesn't exist yet (during migrations), skip
                 pass
-        
         super().save(*args, **kwargs)

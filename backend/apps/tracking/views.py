@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -34,9 +36,25 @@ class CheckInViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return CheckInCreateSerializer
         return CheckInSerializer
-    
+
+    def create(self, request, *args, **kwargs):
+        """Create check-in; response uses CheckInSerializer for full payload."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        client_id = kwargs.get('client_pk')
+        if client_id:
+            from apps.clients.models import Client
+            client = Client.objects.get(id=client_id)
+            instance = serializer.save(client=client)
+        else:
+            instance = serializer.save()
+        return Response(
+            CheckInSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     def perform_create(self, serializer):
-        """Set the client when creating a check-in."""
+        """Legacy: set client when creating (used if create() not overridden)."""
         client_id = self.kwargs.get('client_pk')
         if client_id:
             from apps.clients.models import Client
@@ -96,6 +114,80 @@ class DietLogViewSet(viewsets.ModelViewSet):
         if date_to:
             qs = qs.filter(date__lte=date_to)
         return qs
+
+
+# ---- AI Coach Dashboard (coach-only, JWT auth) ----
+
+class CoachDashboardView(APIView):
+    """GET /api/tracking/coach-dashboard/?days=7 — summary for current coach (high pain, not_done streaks, adherence, by_client)."""
+    permission_classes = [IsAuthenticated, IsCoachOrAssistant]
+
+    def get(self, request):
+        try:
+            days = int(request.query_params.get('days', 7))
+            days = min(max(1, days), 90)
+        except (TypeError, ValueError):
+            days = 7
+        coach_id = request.user.id
+        end_date = timezone.localdate() + timedelta(days=1)
+        start_date = end_date - timedelta(days=days)
+
+        logs = TrainingLog.objects.filter(
+            plan_cycle__coach_id=coach_id,
+            date__gte=start_date,
+            date__lt=end_date,
+        ).select_related('client', 'suggested_exercise', 'executed_exercise', 'plan_cycle').order_by('-date')
+
+        client_ids = list(logs.values_list('client_id', flat=True).distinct())
+        high_pain_clients = []
+        not_done_streak_clients = []
+        by_client = {}
+
+        for log in logs:
+            cid = log.client_id
+            if cid not in by_client:
+                by_client[cid] = {'client_id': cid, 'client_name': log.client.full_name, 'logs': [], 'risk_score': 0}
+            by_client[cid]['logs'].append(TrainingLogSerializer(log).data)
+
+        for cid in client_ids:
+            client_logs = [l for l in logs if l.client_id == cid]
+            client_logs_sorted = sorted(client_logs, key=lambda x: x.date, reverse=True)
+            last = client_logs_sorted[0] if client_logs_sorted else None
+            if last and last.pain_level is not None and last.pain_level >= 6:
+                high_pain_clients.append({'client_id': cid, 'client_name': last.client.full_name, 'pain_level': last.pain_level})
+            recent_two = client_logs_sorted[:2]
+            not_done_count = sum(1 for l in recent_two if l.execution_status == TrainingLog.ExecutionStatus.NOT_DONE)
+            if not_done_count >= 2:
+                not_done_streak_clients.append({'client_id': cid, 'client_name': last.client.full_name if last else ''})
+            # Simple risk score: high pain + low adherence
+            total = len(client_logs)
+            completed = sum(1 for l in client_logs if l.execution_status in (TrainingLog.ExecutionStatus.DONE, TrainingLog.ExecutionStatus.PARTIAL))
+            adherence = (completed / total) if total else 0
+            risk = 0
+            if last and (last.pain_level or 0) >= 6:
+                risk += 40
+            if adherence < 0.5:
+                risk += 30
+            if not_done_count >= 2:
+                risk += 30
+            by_client[cid]['risk_score'] = min(100, risk)
+
+        adherence_trend = []
+        for cid in client_ids:
+            client_logs = [l for l in logs if l.client_id == cid]
+            completed = sum(1 for l in client_logs if l.execution_status in (TrainingLog.ExecutionStatus.DONE, TrainingLog.ExecutionStatus.PARTIAL))
+            total = len(client_logs)
+            rate = round(completed / total, 2) if total else 0
+            adherence_trend.append({'client_id': cid, 'client_name': by_client[cid]['client_name'], 'adherence_rate': rate, 'logs_count': total})
+
+        return Response({
+            'coach_id': coach_id,
+            'days': days,
+            'high_pain_clients': high_pain_clients,
+            'not_done_streak_clients': not_done_streak_clients,
+            'adherence_trend': adherence_trend,
+            'by_client': list(by_client.values()),
+        })
 
 
 # ---- Client "me" endpoints: single log per date (upsert) ----

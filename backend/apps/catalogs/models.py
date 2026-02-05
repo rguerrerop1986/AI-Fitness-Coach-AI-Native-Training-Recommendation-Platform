@@ -207,6 +207,17 @@ class Exercise(models.Model):
         choices=Difficulty.choices,
         default=Difficulty.BEGINNER
     )
+    # Recommendation/ML: intensity 1-10, tags for filtering (e.g. hiit, mobility, low_impact)
+    intensity = models.PositiveSmallIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text='Intensity level 1-10 for recommendation engine',
+    )
+    tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Tags for filtering: e.g. ["hiit", "mobility", "low_impact"]',
+    )
     instructions = models.TextField(help_text="Exercise instructions (text or URL)")
     image_url = models.URLField(
         blank=True,

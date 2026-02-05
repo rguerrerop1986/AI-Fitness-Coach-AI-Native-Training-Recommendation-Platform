@@ -1,28 +1,11 @@
-version: '3.8'
-
 services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: fitness_coach
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fitness_coach
+      - DATABASE_URL=postgresql://postgres:postgres@192.168.0.115:5432/fitness_coach
       - SECRET_KEY=django-insecure-development-key-change-in-production
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
@@ -33,9 +16,6 @@ services:
       - media_volume:/app/media
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
@@ -58,6 +38,5 @@ services:
     command: sh -c "rm -rf node_modules/* || true && rm -f package-lock.json || true && npm install && npm run dev -- --host 0.0.0.0"
 
 volumes:
-  postgres_data:
   static_volume:
   media_volume:

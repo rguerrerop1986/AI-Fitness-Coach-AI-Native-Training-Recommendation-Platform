@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Download, FileText, Calendar, User } from 'lucide-react';
+import { Plus, Download, FileText } from 'lucide-react';
 import { DietBuilder, WorkoutBuilder } from '../components/plan';
 
 interface Client {
@@ -32,7 +32,7 @@ interface PlanCycle {
 export default function PlanBuilder() {
   const navigate = useNavigate();
   const { cycleId } = useParams<{ cycleId: string }>();
-  const { user } = useAuth();
+  useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,6 @@ import { ClientAuthProvider, useClientAuth } from './contexts/ClientAuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import RequireRole from './auth/RequireRole'
 import { useRole } from './auth/useRole'
-import { isCoach } from './auth/roles'
 import Login from './pages/Login'
 import RoleSelectPage from './pages/RoleSelectPage'
 import Dashboard from './pages/Dashboard'
@@ -20,12 +19,14 @@ import Plans from './pages/Plans'
 import PlanBuilder from './pages/PlanBuilder'
 import CheckIns from './pages/CheckIns'
 import Appointments from './pages/Appointments'
+import AICoachDashboard from './pages/AICoachDashboard'
 import Layout from './components/Layout'
 import ClientLogin from './pages/ClientLogin'
 import ClientDashboard from './pages/ClientDashboard'
 import ClientAppointments from './pages/ClientAppointments'
 import ClientPlan from './pages/ClientPlan'
 import DailyLog from './pages/DailyLog'
+import RutinaDeHoy from './pages/RutinaDeHoy'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -156,6 +157,11 @@ function AppRoutes() {
         } />
         <Route path="checkins" element={<CheckIns />} />
         <Route path="appointments" element={<Appointments />} />
+        <Route path="ai-coach-dashboard" element={
+          <RequireRole allowedRoles={['coach', 'assistant']}>
+            <AICoachDashboard />
+          </RequireRole>
+        } />
       </Route>
 
       {/* Coach login (standalone, backward compatible) */}
@@ -181,6 +187,11 @@ function AppRoutes() {
       <Route path="/client/daily-log" element={
         <ClientProtectedRoute>
           <DailyLog />
+        </ClientProtectedRoute>
+      } />
+      <Route path="/client/rutina-de-hoy" element={
+        <ClientProtectedRoute>
+          <RutinaDeHoy />
         </ClientProtectedRoute>
       } />
     </Routes>

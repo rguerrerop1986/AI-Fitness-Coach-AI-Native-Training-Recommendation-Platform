@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'apps.catalogs',
     'apps.plans',
     'apps.tracking',
+    'apps.recommendations',
+    'apps.internal_api',
     'apps.client_portal',
     'apps.appointments',
 ]
@@ -80,7 +82,7 @@ WSGI_APPLICATION = 'fitness_coach.wsgi.application'
 # Database
 import dj_database_url
 
-DATABASE_URL = config('DATABASE_URL', default='postgresql://postgres:postgres@localhost:5432/fitness_coach')
+DATABASE_URL = config('DATABASE_URL', default='postgresql://postgres:postgres@192.168.0.115:5432/fitness_coach')
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL)
 }
@@ -186,6 +188,9 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
+# Internal API (MCP / server-to-server). Header: X-Internal-Token
+INTERNAL_API_TOKEN = config('INTERNAL_API_TOKEN', default='')
 
 # Spectacular settings
 SPECTACULAR_SETTINGS = {

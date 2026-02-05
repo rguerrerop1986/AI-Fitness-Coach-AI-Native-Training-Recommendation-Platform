@@ -1,26 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { api } from '../lib/api';
 import { useTranslation } from 'react-i18next';
+import { calculateBmi, getBmiCategory, getBmiTooltipText } from '../utils/health';
 
-type CreateCheckInFormData = {
+// Payload exacto para POST (nested)
+export interface StructuralPayload {
+  client_id: number;
+  date: string;
   weight_kg: number;
-  body_fat_pct?: number;
-  chest_cm?: number;
-  waist_cm?: number;
-  hips_cm?: number;
-  bicep_cm?: number;
-  thigh_cm?: number;
-  calf_cm?: number;
-  rpe?: number;
-  fatigue?: number;
-  diet_adherence?: number;
-  workout_adherence?: number;
-  notes?: string;
-};
+  height_m: number;
+  rc_termino: number;
+  rc_1min: number;
+  skinfolds: {
+    triceps: { m1: number; m2: number; m3: number; avg: number };
+    subscapular: { m1: number; m2: number; m3: number; avg: number };
+    suprailiac: { m1: number; m2: number; m3: number; avg: number };
+    abdominal: { m1: number; m2: number; m3: number; avg: number };
+    ant_thigh: { m1: number; m2: number; m3: number; avg: number };
+    calf: { m1: number; m2: number; m3: number; avg: number };
+  };
+  diameters: {
+    femoral: { l: number; r: number; avg: number };
+    humeral: { l: number; r: number; avg: number };
+    styloid: { l: number; r: number; avg: number };
+  };
+  perimeters: {
+    waist: number;
+    abdomen: number;
+    calf: number;
+    hip: number;
+    chest: number;
+    arm: { relaxed: number; flexed: number };
+    thigh: { relaxed: number; flexed: number };
+  };
+  feedback: {
+    rpe: number;
+    fatigue: number;
+    diet_adherence_pct: number;
+    training_adherence_pct: number;
+    notes: string;
+  };
+}
+
+const SKINFOLD_KEYS = ['triceps', 'subscapular', 'suprailiac', 'abdominal', 'ant_thigh', 'calf'] as const;
+const DIAMETER_KEYS = ['femoral', 'humeral', 'styloid'] as const;
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function avg3(a: number, b: number, c: number): number {
+  return round2((a + b + c) / 3);
+}
+
+function avg2(a: number, b: number): number {
+  return round2((a + b) / 2);
+}
+
+function num(v: string | number | undefined): number | undefined {
+  if (v === '' || v === undefined) return undefined;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isNaN(n) ? undefined : n;
+}
 
 interface Client {
   id: number;
@@ -29,156 +71,226 @@ interface Client {
   email: string;
 }
 
-interface PreviousCheckIn {
-  id: number;
-  date: string;
-  weight_kg: number;
-  body_fat_pct?: number;
-  chest_cm?: number;
-  waist_cm?: number;
-  hips_cm?: number;
-  bicep_cm?: number;
-  thigh_cm?: number;
-  calf_cm?: number;
-  rpe?: number;
-  fatigue?: number;
-  diet_adherence?: number;
-  workout_adherence?: number;
-}
+const defaultSkincare = () => ({ m1: undefined as number | undefined, m2: undefined, m3: undefined, avg: 0 });
+const defaultDiameter = () => ({ l: undefined as number | undefined, r: undefined, avg: 0 });
 
 export default function CreateCheckIn() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { clientId } = useParams<{ clientId: string }>();
   const [client, setClient] = useState<Client | null>(null);
-  const [previousCheckIn, setPreviousCheckIn] = useState<PreviousCheckIn | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Validation schema for check-in creation
-  const createCheckInSchema = z.object({
-    weight_kg: z.number().min(30, t('validation.weightMin')).max(300, t('validation.weightMax')),
-    body_fat_pct: z.number().min(0, t('validation.bodyFatMin')).max(50, t('validation.bodyFatMax')).optional(),
-    chest_cm: z.number().min(50, t('validation.chestMin')).max(200, t('validation.chestMax')).optional(),
-    waist_cm: z.number().min(50, t('validation.waistMin')).max(200, t('validation.waistMax')).optional(),
-    hips_cm: z.number().min(50, t('validation.hipsMin')).max(200, t('validation.hipsMax')).optional(),
-    bicep_cm: z.number().min(20, t('validation.bicepMin')).max(100, t('validation.bicepMax')).optional(),
-    thigh_cm: z.number().min(30, t('validation.thighMin')).max(150, t('validation.thighMax')).optional(),
-    calf_cm: z.number().min(20, t('validation.calfMin')).max(100, t('validation.calfMax')).optional(),
-    rpe: z.number().min(1, t('validation.rpeMin')).max(10, t('validation.rpeMax')).optional(),
-    fatigue: z.number().min(1, t('validation.fatigueMin')).max(10, t('validation.fatigueMax')).optional(),
-    diet_adherence: z.number().min(0, t('validation.adherenceMin')).max(100, t('validation.adherenceMax')).optional(),
-    workout_adherence: z.number().min(0, t('validation.adherenceMin')).max(100, t('validation.adherenceMax')).optional(),
-    notes: z.string().optional(),
+  const [weight_kg, setWeightKg] = useState<string>('');
+  const [height_m, setHeightM] = useState<string>('');
+  const [rc_termino, setRcTermino] = useState<string>('');
+  const [rc_1min, setRc1min] = useState<string>('');
+
+  const [skinfolds, setSkinfolds] = useState<Record<string, { m1?: number; m2?: number; m3?: number; avg: number }>>(
+    Object.fromEntries(SKINFOLD_KEYS.map((k) => [k, defaultSkincare()]))
+  );
+  const [diameters, setDiameters] = useState<Record<string, { l?: number; r?: number; avg: number }>>(
+    Object.fromEntries(DIAMETER_KEYS.map((k) => [k, defaultDiameter()]))
+  );
+  const [perimeters, setPerimeters] = useState({
+    waist: '',
+    abdomen: '',
+    calf: '',
+    hip: '',
+    chest: '',
+    arm_relaxed: '',
+    arm_flexed: '',
+    thigh_relaxed: '',
+    thigh_flexed: '',
   });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-  } = useForm<CreateCheckInFormData>({
-    resolver: zodResolver(createCheckInSchema),
-    defaultValues: {
-      rpe: 5,
-      fatigue: 5,
-      diet_adherence: 80,
-      workout_adherence: 80,
-    },
+  const [feedback, setFeedback] = useState({
+    rpe: 5,
+    fatigue: 5,
+    diet_adherence_pct: 80,
+    training_adherence_pct: 80,
+    notes: '',
   });
-
-  const watchedValues = watch();
+  const [bmiTooltipOpen, setBmiTooltipOpen] = useState(false);
 
   useEffect(() => {
-    if (clientId) {
-      fetchClientAndPreviousCheckIn();
-    }
+    if (clientId) fetchClient();
   }, [clientId]);
 
-  const fetchClientAndPreviousCheckIn = async () => {
+  const fetchClient = async () => {
     try {
-      // Fetch client details
-      const clientResponse = await api.get(`/clients/${clientId}/`);
-      setClient(clientResponse.data);
-
-      // Fetch previous check-in
-      const checkInsResponse = await api.get(`/clients/${clientId}/check-ins/`);
-      if (checkInsResponse.data.results && checkInsResponse.data.results.length > 0) {
-        setPreviousCheckIn(checkInsResponse.data.results[0]); // Most recent
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch client data');
+      const res = await api.get(`/clients/${clientId}/`);
+      setClient(res.data);
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Error al cargar cliente');
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateDifference = (current: number | undefined, previous: number | undefined) => {
-    if (current === undefined || previous === undefined) return null;
-    const diff = current - previous;
+  const updateSkinfold = useCallback((key: string, field: 'm1' | 'm2' | 'm3', value: string) => {
+    const v = num(value);
+    setSkinfolds((prev) => {
+      const next = { ...prev[key], [field]: v };
+      const m1 = next.m1 ?? 0;
+      const m2 = next.m2 ?? 0;
+      const m3 = next.m3 ?? 0;
+      next.avg = m1 && m2 && m3 ? avg3(m1, m2, m3) : 0;
+      return { ...prev, [key]: next };
+    });
+  }, []);
+
+  const updateDiameter = useCallback((key: string, side: 'l' | 'r', value: string) => {
+    const v = num(value);
+    setDiameters((prev) => {
+      const next = { ...prev[key], [side]: v };
+      const l = next.l ?? 0;
+      const r = next.r ?? 0;
+      next.avg = l && r ? avg2(l, r) : 0;
+      return { ...prev, [key]: next };
+    });
+  }, []);
+
+  const bmiLive = calculateBmi(num(weight_kg), num(height_m));
+
+  const validate = useCallback((): boolean => {
+    const err: Record<string, string> = {};
+    if (num(weight_kg) == null) err['weight_kg'] = t('validation.required');
+    const h = num(height_m);
+    if (h == null) err['height_m'] = t('validation.required');
+    else if (h <= 0) err['height_m'] = t('checkIns.structural.heightMustBePositive');
+    if (num(rc_termino) == null) err['rc_termino'] = t('validation.required');
+    if (num(rc_1min) == null) err['rc_1min'] = t('validation.required');
+    SKINFOLD_KEYS.forEach((k) => {
+      const s = skinfolds[k];
+      if (num(s?.m1) == null) err[`skinfold_${k}_1`] = t('validation.required');
+      if (num(s?.m2) == null) err[`skinfold_${k}_2`] = t('validation.required');
+      if (num(s?.m3) == null) err[`skinfold_${k}_3`] = t('validation.required');
+    });
+    DIAMETER_KEYS.forEach((k) => {
+      const d = diameters[k];
+      if (num(d?.l) == null) err[`diameter_${k}_l`] = t('validation.required');
+      if (num(d?.r) == null) err[`diameter_${k}_r`] = t('validation.required');
+    });
+    const perimKeys = ['waist', 'abdomen', 'calf', 'hip', 'chest', 'arm_relaxed', 'arm_flexed', 'thigh_relaxed', 'thigh_flexed'] as const;
+    perimKeys.forEach((k) => {
+      const val = perimeters[k];
+      if (num(val) == null) err[`perimeter_${k}`] = t('validation.required');
+    });
+    setFieldErrors(err);
+    return Object.keys(err).length === 0;
+  }, [weight_kg, height_m, rc_termino, rc_1min, skinfolds, diameters, perimeters, t]);
+
+  const buildPayload = useCallback((): StructuralPayload | null => {
+    const w = num(weight_kg);
+    const h = num(height_m);
+    const rcT = num(rc_termino);
+    const rc1 = num(rc_1min);
+    if (w == null || h == null || rcT == null || rc1 == null) return null;
+
+    const sf: StructuralPayload['skinfolds'] = {} as StructuralPayload['skinfolds'];
+    SKINFOLD_KEYS.forEach((k) => {
+      const s = skinfolds[k];
+      const m1 = num(s?.m1);
+      const m2 = num(s?.m2);
+      const m3 = num(s?.m3);
+      if (m1 == null || m2 == null || m3 == null) return;
+      sf[k] = { m1, m2, m3, avg: avg3(m1, m2, m3) };
+    });
+    if (Object.keys(sf).length !== SKINFOLD_KEYS.length) return null;
+
+    const diam: StructuralPayload['diameters'] = {} as StructuralPayload['diameters'];
+    DIAMETER_KEYS.forEach((k) => {
+      const d = diameters[k];
+      const l = num(d?.l);
+      const r = num(d?.r);
+      if (l == null || r == null) return;
+      diam[k] = { l, r, avg: avg2(l, r) };
+    });
+    if (Object.keys(diam).length !== DIAMETER_KEYS.length) return null;
+
+    const waist = num(perimeters.waist);
+    const abdomen = num(perimeters.abdomen);
+    const calf = num(perimeters.calf);
+    const hip = num(perimeters.hip);
+    const chest = num(perimeters.chest);
+    const armR = num(perimeters.arm_relaxed);
+    const armF = num(perimeters.arm_flexed);
+    const thighR = num(perimeters.thigh_relaxed);
+    const thighF = num(perimeters.thigh_flexed);
+    if ([waist, abdomen, calf, hip, chest, armR, armF, thighR, thighF].some((x) => x == null)) return null;
+
     return {
-      value: diff,
-      isPositive: diff > 0,
-      isNegative: diff < 0,
-      isNeutral: diff === 0,
+      client_id: Number(clientId),
+      date: new Date().toISOString().split('T')[0],
+      weight_kg: w,
+      height_m: h,
+      rc_termino: rcT,
+      rc_1min: rc1,
+      skinfolds: sf,
+      diameters: diam,
+      perimeters: {
+        waist: waist!,
+        abdomen: abdomen!,
+        calf: calf!,
+        hip: hip!,
+        chest: chest!,
+        arm: { relaxed: armR!, flexed: armF! },
+        thigh: { relaxed: thighR!, flexed: thighF! },
+      },
+      feedback: {
+        rpe: feedback.rpe,
+        fatigue: feedback.fatigue,
+        diet_adherence_pct: feedback.diet_adherence_pct,
+        training_adherence_pct: feedback.training_adherence_pct,
+        notes: feedback.notes || '',
+      },
     };
-  };
+  }, [clientId, weight_kg, height_m, rc_termino, rc_1min, skinfolds, diameters, perimeters, feedback]);
 
-  const formatDifference = (diff: { value: number; isPositive: boolean; isNegative: boolean; isNeutral: boolean } | null) => {
-    if (!diff) return null;
-    
-    const sign = diff.isPositive ? '+' : '';
-    const color = diff.isPositive ? 'text-green-600' : diff.isNegative ? 'text-red-600' : 'text-gray-600';
-    const icon = diff.isPositive ? '↗' : diff.isNegative ? '↘' : '→';
-    
-    return (
-      <span className={`text-sm font-medium ${color}`}>
-        {icon} {sign}{diff.value.toFixed(1)}
-      </span>
-    );
-  };
-
-  const onSubmit = async (data: CreateCheckInFormData) => {
-    setIsSubmitting(true);
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
-
+    if (!validate()) return;
+    const payload = buildPayload();
+    if (!payload) return;
+    setIsSubmitting(true);
     try {
-      const response = await api.post(`/clients/${clientId}/check-ins/`, {
-        ...data,
-        date: new Date().toISOString().split('T')[0], // Today's date
-      });
-
-      if (response.status === 201) {
-        navigate(`/clients/${clientId}`);
+      await api.post(`/clients/${clientId}/check-ins/`, payload);
+      navigate(`/clients/${clientId}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: string | Record<string, string[]> } })?.response?.data;
+      if (typeof msg === 'object' && msg !== null) {
+        const flat: Record<string, string> = {};
+        Object.entries(msg).forEach(([k, v]) => {
+          flat[k] = Array.isArray(v) ? v.join(' ') : String(v);
+        });
+        setFieldErrors((prev) => ({ ...prev, ...flat }));
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create check-in');
+      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Error al crear seguimiento');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const inputClass = 'block w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500';
+  const thClass = 'border border-gray-300 bg-gray-100 px-2 py-1.5 text-left text-sm font-medium text-gray-700';
+  const tdClass = 'border border-gray-300 px-1 py-0.5';
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-800">Client not found</div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 text-red-800">{t('errors.clientNotFound')}</div>
       </div>
     );
   }
@@ -187,386 +299,387 @@ export default function CreateCheckIn() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-lg rounded-lg">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{t('checkIns.newCheckIn')}</h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  {t('checkIns.client')}: {client.first_name} {client.last_name}
-                </p>
-              </div>
-              <button
-                onClick={() => navigate(`/clients/${clientId}`)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                {t('checkIns.backToClient')}
-              </button>
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{t('checkIns.newCheckIn')}</h1>
+              <p className="mt-1 text-sm text-gray-600">
+                {t('checkIns.client')}: {client.first_name} {client.last_name}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/clients/${clientId}`)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {t('checkIns.backToClient')}
+            </button>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-6">
+          <form onSubmit={onSubmit} className="px-6 py-6">
             {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">{t('common.error')}</h3>
-                    <div className="mt-2 text-sm text-red-700">{error}</div>
-                  </div>
-                </div>
-              </div>
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-700">{error}</div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Weight and Body Fat */}
-              <div className="space-y-6">
+            {/* A) Datos principales */}
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.mainData')}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('checkIns.weightAndBodyComposition')}</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="weight_kg" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.weight')} *
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="weight_kg"
-                          step="0.1"
-                          {...register('weight_kg', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="70.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.weight_kg, previousCheckIn.weight_kg))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.weight_kg && (
-                        <p className="mt-1 text-sm text-red-600">{errors.weight_kg.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="body_fat_pct" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.bodyFat')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="body_fat_pct"
-                          step="0.1"
-                          {...register('body_fat_pct', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="15.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.body_fat_pct, previousCheckIn.body_fat_pct))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.body_fat_pct && (
-                        <p className="mt-1 text-sm text-red-600">{errors.body_fat_pct.message}</p>
-                      )}
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.structural.weightKg')} *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={weight_kg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                    className={inputClass}
+                    placeholder="70.0"
+                  />
+                  {fieldErrors.weight_kg && <p className="mt-1 text-sm text-red-600">{fieldErrors.weight_kg}</p>}
                 </div>
-
-                {/* Upper Body Measurements */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('checkIns.upperBody')}</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="chest_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.chest')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="chest_cm"
-                          step="0.1"
-                          {...register('chest_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="100.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.chest_cm, previousCheckIn.chest_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.chest_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.chest_cm.message}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.structural.heightM')} *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="2.5"
+                    value={height_m}
+                    onChange={(e) => setHeightM(e.target.value)}
+                    className={inputClass}
+                    placeholder="1.75"
+                  />
+                  {fieldErrors.height_m && <p className="mt-1 text-sm text-red-600">{fieldErrors.height_m}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.structural.bmi')}</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={bmiLive != null ? String(bmiLive) : ''}
+                      className={`${inputClass} bg-gray-100 cursor-not-allowed w-24 flex-shrink-0`}
+                      aria-readonly="true"
+                    />
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        getBmiCategory(bmiLive) === 'noData'
+                          ? 'bg-gray-100 text-gray-600'
+                          : getBmiCategory(bmiLive) === 'normal'
+                            ? 'bg-green-100 text-green-800'
+                            : getBmiCategory(bmiLive) === 'underweight'
+                              ? 'bg-sky-100 text-sky-800'
+                              : getBmiCategory(bmiLive) === 'overweight'
+                                ? 'bg-amber-100 text-amber-800'
+                                : getBmiCategory(bmiLive) === 'obesity1' || getBmiCategory(bmiLive) === 'obesity2'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {t(`checkIns.structural.bmiCategory.${getBmiCategory(bmiLive)}`)}
+                    </span>
+                    <span className="relative inline-flex">
+                      <button
+                        type="button"
+                        onMouseEnter={() => setBmiTooltipOpen(true)}
+                        onMouseLeave={() => setBmiTooltipOpen(false)}
+                        onFocus={() => setBmiTooltipOpen(true)}
+                        onBlur={() => setBmiTooltipOpen(false)}
+                        className="rounded p-0.5 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        aria-label={t('checkIns.structural.bmiCategoryLabel')}
+                        aria-describedby={bmiTooltipOpen ? 'bmi-ranges-tooltip' : undefined}
+                      >
+                        <span className="text-sm font-bold leading-none" style={{ fontFamily: 'serif' }}>ⓘ</span>
+                      </button>
+                      {bmiTooltipOpen && (
+                        <span
+                          id="bmi-ranges-tooltip"
+                          role="tooltip"
+                          className="absolute left-full top-0 z-50 ml-1 w-48 rounded border border-gray-200 bg-white px-2.5 py-2 text-left text-xs text-gray-700 shadow-lg whitespace-pre-line"
+                        >
+                          {getBmiTooltipText()}
+                        </span>
                       )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="bicep_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.bicep')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="bicep_cm"
-                          step="0.1"
-                          {...register('bicep_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="35.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.bicep_cm, previousCheckIn.bicep_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.bicep_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.bicep_cm.message}</p>
-                      )}
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
+            </section>
 
-              {/* Lower Body Measurements */}
-              <div className="space-y-6">
-                {/* Core Measurements */}
+            {/* B) RC */}
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.rcSection')}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('checkIns.core')}</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="waist_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.waist')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="waist_cm"
-                          step="0.1"
-                          {...register('waist_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="80.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.waist_cm, previousCheckIn.waist_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.waist_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.waist_cm.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="hips_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.hips')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="hips_cm"
-                          step="0.1"
-                          {...register('hips_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="95.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.hips_cm, previousCheckIn.hips_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.hips_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.hips_cm.message}</p>
-                      )}
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.structural.rcTermino')} *</label>
+                  <input
+                    type="number"
+                    value={rc_termino}
+                    onChange={(e) => setRcTermino(e.target.value)}
+                    className={inputClass}
+                  />
+                  {fieldErrors.rc_termino && <p className="mt-1 text-sm text-red-600">{fieldErrors.rc_termino}</p>}
                 </div>
-
-                {/* Lower Body Measurements */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('checkIns.lowerBody')}</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="thigh_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.thigh')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="thigh_cm"
-                          step="0.1"
-                          {...register('thigh_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="55.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.thigh_cm, previousCheckIn.thigh_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.thigh_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.thigh_cm.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="calf_cm" className="block text-sm font-medium text-gray-700">
-                        {t('metrics.calf')}
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type="number"
-                          id="calf_cm"
-                          step="0.1"
-                          {...register('calf_cm', { valueAsNumber: true })}
-                          className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="35.0"
-                        />
-                        {previousCheckIn && (
-                          <div className="absolute right-2 top-2">
-                            {formatDifference(calculateDifference(watchedValues.calf_cm, previousCheckIn.calf_cm))}
-                          </div>
-                        )}
-                      </div>
-                      {errors.calf_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.calf_cm.message}</p>
-                      )}
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.structural.rc1min')} *</label>
+                  <input
+                    type="number"
+                    value={rc_1min}
+                    onChange={(e) => setRc1min(e.target.value)}
+                    className={inputClass}
+                  />
+                  {fieldErrors.rc_1min && <p className="mt-1 text-sm text-red-600">{fieldErrors.rc_1min}</p>}
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Training Feedback */}
-            <div className="mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">{t('checkIns.trainingFeedback')}</h3>
-              
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* C) Pliegues - tabla tipo Excel */}
+            <section className="mb-6 overflow-x-auto">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.pliegues')}</h2>
+              <table className="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr>
+                    <th className={thClass} style={{ minWidth: 120 }}></th>
+                    <th className={thClass}>{t('checkIns.structural.promedio')}</th>
+                    <th className={thClass}>{t('checkIns.structural.measure1')}</th>
+                    <th className={thClass}>{t('checkIns.structural.measure2')}</th>
+                    <th className={thClass}>{t('checkIns.structural.measure3')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SKINFOLD_KEYS.map((key) => (
+                    <tr key={key}>
+                      <td className={`${tdClass} bg-gray-50 font-medium`}>
+                        {t(`checkIns.structural.${key === 'ant_thigh' ? 'antThigh' : key}`)}
+                      </td>
+                      <td className={tdClass}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={skinfolds[key]?.avg ? String(skinfolds[key].avg) : ''}
+                          className="w-full bg-gray-100 border-0 text-sm"
+                        />
+                      </td>
+                      {(['m1', 'm2', 'm3'] as const).map((m) => (
+                        <td key={m} className={tdClass}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={skinfolds[key]?.[m] ?? ''}
+                            onChange={(e) => updateSkinfold(key, m, e.target.value)}
+                            className={`w-full ${inputClass}`}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            {/* D) Diámetros */}
+            <section className="mb-6 overflow-x-auto">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.diameters')}</h2>
+              <table className="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr>
+                    <th className={thClass} style={{ minWidth: 100 }}></th>
+                    <th className={thClass}>{t('checkIns.structural.left')}</th>
+                    <th className={thClass}>{t('checkIns.structural.right')}</th>
+                    <th className={thClass}>{t('checkIns.structural.promedio')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DIAMETER_KEYS.map((key) => (
+                    <tr key={key}>
+                      <td className={`${tdClass} bg-gray-50 font-medium`}>{t(`checkIns.structural.${key}`)}</td>
+                      <td className={tdClass}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={diameters[key]?.l ?? ''}
+                          onChange={(e) => updateDiameter(key, 'l', e.target.value)}
+                          className={`w-full ${inputClass}`}
+                        />
+                      </td>
+                      <td className={tdClass}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={diameters[key]?.r ?? ''}
+                          onChange={(e) => updateDiameter(key, 'r', e.target.value)}
+                          className={`w-full ${inputClass}`}
+                        />
+                      </td>
+                      <td className={tdClass}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={diameters[key]?.avg ? String(diameters[key].avg) : ''}
+                          className="w-full bg-gray-100 border-0 text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            {/* E) Perímetros */}
+            <section className="mb-6 overflow-x-auto">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.perimeters')}</h2>
+              <table className="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr>
+                    <th className={thClass} style={{ minWidth: 120 }}></th>
+                    <th className={thClass}>{t('checkIns.structural.valueCm')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { key: 'waist', label: t('checkIns.structural.waist') },
+                    { key: 'abdomen', label: t('checkIns.structural.abdomen') },
+                    { key: 'calf', label: t('checkIns.structural.calf') },
+                    { key: 'hip', label: t('checkIns.structural.hip') },
+                    { key: 'chest', label: t('checkIns.structural.chest') },
+                  ].map(({ key, label }) => (
+                    <tr key={key}>
+                      <td className={`${tdClass} bg-gray-50 font-medium`}>{label}</td>
+                      <td className={tdClass}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={perimeters[key as keyof typeof perimeters] ?? ''}
+                          onChange={(e) => setPerimeters((p) => ({ ...p, [key]: e.target.value }))}
+                          className={`w-full ${inputClass}`}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className={`${tdClass} bg-gray-50 font-medium`}>{t('checkIns.structural.arm')}</td>
+                    <td className={tdClass}>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder={t('checkIns.structural.relaxed')}
+                          value={perimeters.arm_relaxed}
+                          onChange={(e) => setPerimeters((p) => ({ ...p, arm_relaxed: e.target.value }))}
+                          className={`flex-1 ${inputClass}`}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder={t('checkIns.structural.flexed')}
+                          value={perimeters.arm_flexed}
+                          onChange={(e) => setPerimeters((p) => ({ ...p, arm_flexed: e.target.value }))}
+                          className={`flex-1 ${inputClass}`}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className={`${tdClass} bg-gray-50 font-medium`}>{t('checkIns.structural.thigh')}</td>
+                    <td className={tdClass}>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder={t('checkIns.structural.relaxed')}
+                          value={perimeters.thigh_relaxed}
+                          onChange={(e) => setPerimeters((p) => ({ ...p, thigh_relaxed: e.target.value }))}
+                          className={`flex-1 ${inputClass}`}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder={t('checkIns.structural.flexed')}
+                          value={perimeters.thigh_flexed}
+                          onChange={(e) => setPerimeters((p) => ({ ...p, thigh_flexed: e.target.value }))}
+                          className={`flex-1 ${inputClass}`}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+
+            {/* F) Retroalimentación */}
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('checkIns.structural.feedback')}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label htmlFor="rpe" className="block text-sm font-medium text-gray-700">
-                    {t('metrics.rpe')}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('metrics.rpe')}</label>
                   <input
                     type="number"
-                    id="rpe"
-                    min="1"
-                    max="10"
-                    {...register('rpe', { valueAsNumber: true })}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min={1}
+                    max={10}
+                    value={feedback.rpe}
+                    onChange={(e) => setFeedback((f) => ({ ...f, rpe: Number(e.target.value) || 0 }))}
+                    className={inputClass}
                   />
-                  {errors.rpe && (
-                    <p className="mt-1 text-sm text-red-600">{errors.rpe.message}</p>
-                  )}
                 </div>
-
                 <div>
-                  <label htmlFor="fatigue" className="block text-sm font-medium text-gray-700">
-                    {t('metrics.fatigue')}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('metrics.fatigue')}</label>
                   <input
                     type="number"
-                    id="fatigue"
-                    min="1"
-                    max="10"
-                    {...register('fatigue', { valueAsNumber: true })}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min={1}
+                    max={10}
+                    value={feedback.fatigue}
+                    onChange={(e) => setFeedback((f) => ({ ...f, fatigue: Number(e.target.value) || 0 }))}
+                    className={inputClass}
                   />
-                  {errors.fatigue && (
-                    <p className="mt-1 text-sm text-red-600">{errors.fatigue.message}</p>
-                  )}
                 </div>
-
                 <div>
-                  <label htmlFor="diet_adherence" className="block text-sm font-medium text-gray-700">
-                    {t('metrics.dietAdherence')}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('metrics.dietAdherence')}</label>
                   <input
                     type="number"
-                    id="diet_adherence"
-                    min="0"
-                    max="100"
-                    {...register('diet_adherence', { valueAsNumber: true })}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min={0}
+                    max={100}
+                    value={feedback.diet_adherence_pct}
+                    onChange={(e) => setFeedback((f) => ({ ...f, diet_adherence_pct: Number(e.target.value) || 0 }))}
+                    className={inputClass}
                   />
-                  {errors.diet_adherence && (
-                    <p className="mt-1 text-sm text-red-600">{errors.diet_adherence.message}</p>
-                  )}
                 </div>
-
                 <div>
-                  <label htmlFor="workout_adherence" className="block text-sm font-medium text-gray-700">
-                    {t('metrics.workoutAdherence')}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('metrics.workoutAdherence')}</label>
                   <input
                     type="number"
-                    id="workout_adherence"
-                    min="0"
-                    max="100"
-                    {...register('workout_adherence', { valueAsNumber: true })}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min={0}
+                    max={100}
+                    value={feedback.training_adherence_pct}
+                    onChange={(e) => setFeedback((f) => ({ ...f, training_adherence_pct: Number(e.target.value) || 0 }))}
+                    className={inputClass}
                   />
-                  {errors.workout_adherence && (
-                    <p className="mt-1 text-sm text-red-600">{errors.workout_adherence.message}</p>
-                  )}
                 </div>
               </div>
-            </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkIns.notes')}</label>
+                <textarea
+                  rows={3}
+                  value={feedback.notes}
+                  onChange={(e) => setFeedback((f) => ({ ...f, notes: e.target.value }))}
+                  className={inputClass}
+                  placeholder={t('checkIns.notesPlaceholder')}
+                />
+              </div>
+            </section>
 
-            {/* Notes */}
-            <div className="mt-8">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-                {t('checkIns.notes')}
-              </label>
-              <textarea
-                id="notes"
-                rows={4}
-                {...register('notes')}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder={t('checkIns.notesPlaceholder')}
-              />
-              {errors.notes && (
-                <p className="mt-1 text-sm text-red-600">{errors.notes.message}</p>
-              )}
-            </div>
-
-            {/* Form Actions */}
-            <div className="mt-8 flex justify-end space-x-3">
+            <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"
                 onClick={() => navigate(`/clients/${clientId}`)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {t('checkIns.creating')}...
-                  </>
-                ) : (
-                  t('checkIns.createCheckIn')
-                )}
+                {isSubmitting ? `${t('checkIns.creating')}...` : t('checkIns.createCheckIn')}
               </button>
             </div>
           </form>

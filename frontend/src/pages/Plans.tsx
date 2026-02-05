@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { Plus, Calendar, User, Download, Trash2 } from 'lucide-react';
+import { Plus, Download, Trash2 } from 'lucide-react';
 
 interface PlanCycle {
   id: number;
