@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { Dumbbell, ArrowLeft, Sun, Moon, LogOut, User, CheckCircle, XCircle, SkipForward } from 'lucide-react'
 import { api } from '../lib/api'
+import { formatLocalYYYYMMDD } from '../lib/date'
 import { toast } from 'react-hot-toast'
 
 const EXECUTION_OPTIONS = [
@@ -40,9 +41,6 @@ interface TrainingLogData {
   recommendation_confidence?: string
 }
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 /** Extract rationale from notes (line starting with [Rutina]) */
 function getRationaleFromNotes(notes: string): string {
@@ -57,7 +55,7 @@ export default function RutinaDeHoy() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [log, setLog] = useState<TrainingLogData | null>(null)
-  const date = todayISO()
+  const date = formatLocalYYYYMMDD()
 
   const [executionStatus, setExecutionStatus] = useState<ExecutionStatus>('not_done')
   const [rpe, setRpe] = useState<number | ''>(5)

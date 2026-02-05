@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatLocalYYYYMMDD } from '../lib/date';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { calculateBmi, getBmiCategory, getBmiTooltipText } from '../utils/health';
@@ -225,7 +226,7 @@ export default function CreateCheckIn() {
 
     return {
       client_id: Number(clientId),
-      date: new Date().toISOString().split('T')[0],
+      date: formatLocalYYYYMMDD(),
       weight_kg: w,
       height_m: h,
       rc_termino: rcT,

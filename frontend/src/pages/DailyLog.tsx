@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { Dumbbell, Apple, Calendar, Moon, Sun, LogOut, User } from 'lucide-react'
 import { api } from '../lib/api'
+import { formatLocalYYYYMMDD } from '../lib/date'
 import { toast } from 'react-hot-toast'
 
 const EXECUTION_STATUSES = [
@@ -41,18 +42,10 @@ interface DietLogData {
   notes: string
 }
 
-function formatDateForInput(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function todayDate(): string {
-  return formatDateForInput(new Date())
-}
-
 export default function DailyLog() {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
-  const [selectedDate, setSelectedDate] = useState(todayDate())
+  const [selectedDate, setSelectedDate] = useState(formatLocalYYYYMMDD())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -162,7 +155,7 @@ export default function DailyLog() {
     return () => clearTimeout(t)
   }, [exerciseSearch, searchExercises])
 
-  const maxDate = todayDate()
+  const maxDate = formatLocalYYYYMMDD()
 
   const handleSave = async () => {
     setSaving(true)

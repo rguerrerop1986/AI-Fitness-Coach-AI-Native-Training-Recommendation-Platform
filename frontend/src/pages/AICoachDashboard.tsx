@@ -14,6 +14,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { formatLocalYYYYMMDD } from '../lib/date'
 
 interface TrainingLogItem {
   id: number
@@ -85,7 +86,7 @@ export default function AICoachDashboard() {
     })
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = formatLocalYYYYMMDD()
 
   if (loading) {
     return (
