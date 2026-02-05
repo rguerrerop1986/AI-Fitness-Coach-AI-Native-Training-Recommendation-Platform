@@ -34,6 +34,15 @@ class Client(models.Model):
     consent_checkbox = models.BooleanField(default=False)
     emergency_contact = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    deactivated_at = models.DateTimeField(null=True, blank=True)
+    deactivated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deactivated_clients',
+    )
+    deactivation_reason = models.TextField(blank=True)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

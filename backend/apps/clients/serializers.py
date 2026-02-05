@@ -32,6 +32,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'full_name', 'date_of_birth',
             'age', 'sex', 'email', 'phone', 'height_cm', 'initial_weight_kg',
             'notes', 'consent_checkbox', 'emergency_contact', 'is_active',
+            'deactivated_at', 'deactivated_by', 'deactivation_reason',
             'has_portal_access', 'portal_username',
             'measurements', 'created_at', 'updated_at',
         ]
@@ -88,6 +89,11 @@ class ClientCreateSerializer(serializers.ModelSerializer):
         client.user = user
         client.save(update_fields=['user'])
         return client
+
+
+class DeactivateClientSerializer(serializers.Serializer):
+    """Serializer for deactivate request body (optional reason)."""
+    reason = serializers.CharField(required=False, allow_blank=True, default='')
 
 
 class ClientSetPasswordSerializer(serializers.Serializer):

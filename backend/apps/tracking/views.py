@@ -45,8 +45,23 @@ class CheckInViewSet(viewsets.ModelViewSet):
         if client_id:
             from apps.clients.models import Client
             client = Client.objects.get(id=client_id)
+            if not client.is_active:
+                return Response(
+                    {'detail': 'El cliente está inactivo. No se pueden crear seguimientos.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
             instance = serializer.save(client=client)
         else:
+            # Standalone create (e.g. POST /api/tracking/check-ins/ with client_id in body)
+            client_id = serializer.validated_data.get('client_id')
+            if client_id is not None:
+                from apps.clients.models import Client
+                c = Client.objects.filter(pk=client_id).first()
+                if c and not c.is_active:
+                    return Response(
+                        {'detail': 'El cliente está inactivo. No se pueden crear seguimientos.'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
             instance = serializer.save()
         return Response(
             CheckInSerializer(instance).data,

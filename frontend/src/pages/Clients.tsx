@@ -14,6 +14,7 @@ interface Client {
   height_cm: number;
   initial_weight_kg: number;
   created_at: string;
+  is_active?: boolean;
 }
 
 export default function Clients() {
@@ -22,14 +23,16 @@ export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [showInactive]);
 
   const fetchClients = async () => {
     try {
-      const response = await api.get('/clients/');
+      const params = showInactive ? { is_active: 'false' } : {};
+      const response = await api.get('/clients/', { params });
       setClients(response.data.results || response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch clients');
@@ -79,15 +82,26 @@ export default function Clients() {
                 {t('clients.subtitle')}
               </p>
             </div>
-            <button
-              onClick={() => navigate('/clients/create')}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              {t('clients.addNewClient')}
-            </button>
+            <div className="flex items-center gap-4">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                {t('clients.showInactive', 'Mostrar inactivos')}
+              </label>
+              <button
+                onClick={() => navigate('/clients/create')}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {t('clients.addNewClient')}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -145,9 +159,16 @@ export default function Clients() {
                       </div>
                     </div>
                     <div className="ml-4 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {client.first_name} {client.last_name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {client.first_name} {client.last_name}
+                        </h3>
+                        {client.is_active === false && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                            Inactivo
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">{client.email}</p>
                     </div>
                   </div>

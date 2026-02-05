@@ -113,10 +113,16 @@ class PlanCycleViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
+        client = serializer.validated_data.get('client')
+        if client and not client.is_active:
+            return Response(
+                {'detail': 'El cliente está inactivo. No se pueden crear planes.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         serializer.save()
-        
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
     @action(detail=True, methods=['post'], url_path='set-status')
     def set_status(self, request, pk=None):
         """

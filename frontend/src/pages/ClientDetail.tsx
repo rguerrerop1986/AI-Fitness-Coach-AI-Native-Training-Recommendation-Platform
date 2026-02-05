@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { toast } from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Client {
@@ -16,6 +17,9 @@ interface Client {
   notes: string;
   emergency_contact: string;
   created_at: string;
+  is_active?: boolean;
+  deactivated_at?: string | null;
+  deactivation_reason?: string;
   has_portal_access?: boolean;
   portal_username?: string | null;
 }
@@ -52,6 +56,10 @@ export default function ClientDetail() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [deactivateLoading, setDeactivateLoading] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -72,6 +80,42 @@ export default function ClientDetail() {
       setError(err.response?.data?.message || 'Failed to fetch client data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeactivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeactivateLoading(true);
+    try {
+      const response = await api.post(`/clients/${id}/deactivate/`, { reason: deactivateReason.trim() || undefined });
+      setClient(response.data);
+      const count = response.data.cancelled_appointments_count ?? 0;
+      toast.success(
+        count > 0
+          ? `Cliente dado de baja. Citas futuras canceladas: ${count}`
+          : 'Cliente dado de baja.',
+      );
+      setShowDeactivateModal(false);
+      setDeactivateReason('');
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Error al dar de baja';
+      toast.error(msg);
+    } finally {
+      setDeactivateLoading(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    setReactivateLoading(true);
+    try {
+      const response = await api.post(`/clients/${id}/reactivate/`);
+      setClient(response.data);
+      toast.success('Cliente reactivado.');
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Error al reactivar';
+      toast.error(msg);
+    } finally {
+      setReactivateLoading(false);
     }
   };
 
@@ -238,23 +282,71 @@ export default function ClientDetail() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {client.first_name} {client.last_name}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {client.first_name} {client.last_name}
+                </h1>
+                {client.is_active === false && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    Inactivo
+                  </span>
+                )}
+              </div>
               <p className="mt-2 text-sm text-gray-600">
                 Client since {formatDate(client.created_at)}
               </p>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => navigate(`/clients/${id}/check-in`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                New Check-In
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              {client.is_active === false ? (
+                <>
+                  <span
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-500 bg-gray-100 cursor-not-allowed"
+                    title="Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos."
+                  >
+                    <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    New Check-In
+                  </span>
+                  <span
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-500 bg-gray-100 cursor-not-allowed"
+                    title="Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos."
+                  >
+                    New Plan
+                  </span>
+                  <button
+                    onClick={handleReactivate}
+                    disabled={reactivateLoading}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                  >
+                    {reactivateLoading ? 'Reactivando...' : 'Reactivar cliente'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => navigate(`/clients/${id}/check-in`)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    New Check-In
+                  </button>
+                  <button
+                    onClick={() => navigate(`/plans/new?client=${id}`)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    New Plan
+                  </button>
+                  <button
+                    onClick={() => setShowDeactivateModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Dar de baja
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => navigate('/clients')}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -263,6 +355,11 @@ export default function ClientDetail() {
               </button>
             </div>
           </div>
+          {client.is_active === false && (
+            <p className="mt-2 text-sm text-amber-700">
+              Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -475,12 +572,16 @@ export default function ClientDetail() {
                     Start tracking progress by creating the first check-in.
                   </p>
                   <div className="mt-6">
-                    <button
-                      onClick={() => navigate(`/clients/${id}/check-in`)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Create First Check-In
-                    </button>
+                    {client.is_active !== false ? (
+                      <button
+                        onClick={() => navigate(`/clients/${id}/check-in`)}
+                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Create First Check-In
+                      </button>
+                    ) : (
+                      <p className="text-sm text-amber-700">Cliente inactivo. Reactívalo para crear seguimientos.</p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -600,6 +701,54 @@ export default function ClientDetail() {
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {passwordLoading ? 'Setting...' : 'Set Password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate confirmation modal */}
+      {showDeactivateModal && client && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Dar de baja cliente</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Se cancelarán automáticamente todas las citas futuras del cliente.
+              </p>
+              <form onSubmit={handleDeactivate}>
+                <div className="mb-4">
+                  <label htmlFor="deactivate-reason" className="block text-sm font-medium text-gray-700 mb-1">
+                    Motivo (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    id="deactivate-reason"
+                    value={deactivateReason}
+                    onChange={(e) => setDeactivateReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    placeholder="Ej. Se fue del programa"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeactivateModal(false);
+                      setDeactivateReason('');
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={deactivateLoading}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                  >
+                    {deactivateLoading ? 'Procesando...' : 'Dar de baja'}
                   </button>
                 </div>
               </form>

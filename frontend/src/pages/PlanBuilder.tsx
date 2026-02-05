@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-hot-toast';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Download, FileText } from 'lucide-react';
@@ -32,6 +33,8 @@ interface PlanCycle {
 export default function PlanBuilder() {
   const navigate = useNavigate();
   const { cycleId } = useParams<{ cycleId: string }>();
+  const [searchParams] = useSearchParams();
+  const preselectedClientId = searchParams.get('client') || '';
   useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -93,6 +96,12 @@ export default function PlanBuilder() {
       const response = await api.post('/plans/plan-cycles/', data);
       navigate(`/plans/${response.data.id}/builder`);
     } catch (err: any) {
+      if (err.response?.status === 409) {
+        const detail = err.response?.data?.detail || 'El cliente está inactivo. No se pueden crear planes.';
+        toast.error(detail);
+        if (clientId) navigate(`/clients/${clientId}`);
+        return;
+      }
       if (err.response?.data) {
         const errors = err.response.data;
         if (typeof errors === 'object') {
@@ -342,6 +351,7 @@ export default function PlanBuilder() {
             <select
               name="client_id"
               required
+              defaultValue={preselectedClientId}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">{t('plans.selectClient')}</option>

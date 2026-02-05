@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-hot-toast';
 import { calculateBmi, getBmiCategory, getBmiTooltipText } from '../utils/health';
 
 // Payload exacto para POST (nested)
@@ -261,15 +262,24 @@ export default function CreateCheckIn() {
       await api.post(`/clients/${clientId}/check-ins/`, payload);
       navigate(`/clients/${clientId}`);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: string | Record<string, string[]> } })?.response?.data;
-      if (typeof msg === 'object' && msg !== null) {
+      const ax = err as { response?: { status?: number; data?: { detail?: string; message?: string } | Record<string, string[]> } };
+      if (ax.response?.status === 409) {
+        const detail = ax.response?.data && typeof ax.response.data === 'object' && 'detail' in ax.response.data
+          ? String((ax.response.data as { detail?: string }).detail)
+          : 'El cliente está inactivo. No se pueden crear seguimientos.';
+        toast.error(detail);
+        navigate(`/clients/${clientId}`);
+        return;
+      }
+      const msg = ax?.response?.data;
+      if (typeof msg === 'object' && msg !== null && !('detail' in msg)) {
         const flat: Record<string, string> = {};
         Object.entries(msg).forEach(([k, v]) => {
           flat[k] = Array.isArray(v) ? v.join(' ') : String(v);
         });
         setFieldErrors((prev) => ({ ...prev, ...flat }));
       }
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Error al crear seguimiento');
+      setError(ax?.response?.data?.message || (ax?.response?.data && typeof ax.response.data === 'object' && 'detail' in ax.response.data ? (ax.response.data as { detail?: string }).detail : undefined) || 'Error al crear seguimiento');
     } finally {
       setIsSubmitting(false);
     }
