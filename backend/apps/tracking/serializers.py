@@ -44,17 +44,17 @@ class TrainingLogSerializer(serializers.ModelSerializer):
 
     def validate_rpe(self, value):
         if value is not None and (value < 1 or value > 10):
-            raise serializers.ValidationError('RPE must be between 1 and 10.')
+            raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
 
     def validate_energy_level(self, value):
         if value is not None and (value < 1 or value > 10):
-            raise serializers.ValidationError('Energy level must be between 1 and 10.')
+            raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
 
     def validate_pain_level(self, value):
         if value is not None and (value < 0 or value > 10):
-            raise serializers.ValidationError('Pain level must be between 0 and 10.')
+            raise serializers.ValidationError('Debe estar entre 0 y 10.')
         return value
 
 
@@ -77,17 +77,17 @@ class DietLogSerializer(serializers.ModelSerializer):
 
     def validate_hunger_level(self, value):
         if value is not None and (value < 1 or value > 10):
-            raise serializers.ValidationError('Hunger level must be between 1 and 10.')
+            raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
 
     def validate_cravings_level(self, value):
         if value is not None and (value < 1 or value > 10):
-            raise serializers.ValidationError('Cravings level must be between 1 and 10.')
+            raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
 
     def validate_digestion_quality(self, value):
         if value is not None and (value < 1 or value > 10):
-            raise serializers.ValidationError('Digestion quality must be between 1 and 10.')
+            raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
 
 

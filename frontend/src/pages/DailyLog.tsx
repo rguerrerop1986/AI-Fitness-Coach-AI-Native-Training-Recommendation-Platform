@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
-import { Dumbbell, Apple, Calendar, Moon, Sun, LogOut, User } from 'lucide-react'
+import { Dumbbell, Apple, Calendar, Moon, Sun, LogOut, User, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatLocalYYYYMMDD } from '../lib/date'
+import { getScaleLabel, getMetricDefinition, type DailyLogMetricKey } from '../lib/dailyLogMetrics'
 import { toast } from 'react-hot-toast'
 
 const EXECUTION_STATUSES = [
@@ -14,6 +15,73 @@ const EXECUTION_STATUSES = [
 ] as const
 
 type ExecutionStatus = typeof EXECUTION_STATUSES[number]['value']
+
+/** Scale input with helper text and "¿Qué es?" collapsible for Daily Log metrics */
+function ScaleBlock({
+  metricKey,
+  value,
+  min,
+  max,
+  defaultValueWhenEmpty,
+  label,
+  onChange,
+}: {
+  metricKey: DailyLogMetricKey
+  value: number | ''
+  min: number
+  max: number
+  /** Value shown on the slider when value is empty (e.g. 5 for RPE) */
+  defaultValueWhenEmpty: number
+  label: string
+  onChange: (n: number) => void
+}) {
+  const displayValue = value === '' ? defaultValueWhenEmpty : value
+  const helperText = getScaleLabel(metricKey, value)
+  const definition = getMetricDefinition(metricKey)
+  const id = `${metricKey}-helper`
+
+  return (
+    <div className="space-y-1 min-h-[5.5rem]">
+      <label htmlFor={metricKey} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label} {value !== '' && `· ${value}`}
+      </label>
+      <input
+        id={metricKey}
+        type="range"
+        min={min}
+        max={max}
+        value={displayValue}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-describedby={helperText ? id : undefined}
+        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
+      />
+      <div id={id} className="min-h-[1.25rem] text-xs text-gray-600 dark:text-gray-400" role="status">
+        {helperText ?? '\u00A0'}
+      </div>
+      {definition && (
+        <details className="group mt-1">
+          <summary className="cursor-pointer list-none flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 font-medium">
+            <ChevronRight className="h-3.5 w-3.5 group-open:rotate-90 transition-transform" />
+            ¿Qué es?
+          </summary>
+          <div className="mt-1.5 pl-4 border-l-2 border-gray-200 dark:border-gray-600 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+            {definition.descriptionLines.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+            <p className="font-medium mt-2 text-gray-700 dark:text-gray-300">Equivalencias:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {definition.ranges.map((r) => (
+                <li key={r.range}>
+                  {r.range} → {r.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
 
 interface Exercise {
   id: number
@@ -355,45 +423,33 @@ export default function DailyLog() {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Esfuerzo percibido (RPE) {rpe !== '' && `· ${rpe}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={rpe === '' ? 5 : rpe}
-                      onChange={(e) => setRpe(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Nivel de energía {energyLevel !== '' && `· ${energyLevel}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={energyLevel === '' ? 5 : energyLevel}
-                      onChange={(e) => setEnergyLevel(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Dolor (0–10) {painLevel !== '' && `· ${painLevel}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={10}
-                      value={painLevel === '' ? 0 : painLevel}
-                      onChange={(e) => setPainLevel(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
+                  <ScaleBlock
+                    metricKey="rpe"
+                    value={rpe}
+                    min={1}
+                    max={10}
+                    defaultValueWhenEmpty={5}
+                    label="Esfuerzo percibido (RPE)"
+                    onChange={setRpe}
+                  />
+                  <ScaleBlock
+                    metricKey="energy_level"
+                    value={energyLevel}
+                    min={1}
+                    max={10}
+                    defaultValueWhenEmpty={5}
+                    label="Nivel de energía"
+                    onChange={setEnergyLevel}
+                  />
+                  <ScaleBlock
+                    metricKey="pain_level"
+                    value={painLevel}
+                    min={0}
+                    max={10}
+                    defaultValueWhenEmpty={0}
+                    label="Dolor (0–10)"
+                    onChange={setPainLevel}
+                  />
                 </div>
 
                 <div>
@@ -434,45 +490,33 @@ export default function DailyLog() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Hambre {hungerLevel !== '' && `· ${hungerLevel}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={hungerLevel === '' ? 5 : hungerLevel}
-                      onChange={(e) => setHungerLevel(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Antojos {cravingsLevel !== '' && `· ${cravingsLevel}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={cravingsLevel === '' ? 5 : cravingsLevel}
-                      onChange={(e) => setCravingsLevel(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Digestión {digestionQuality !== '' && `· ${digestionQuality}`}
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={digestionQuality === '' ? 5 : digestionQuality}
-                      onChange={(e) => setDigestionQuality(Number(e.target.value))}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-600 accent-primary-600"
-                    />
-                  </div>
+                  <ScaleBlock
+                    metricKey="hunger_level"
+                    value={hungerLevel}
+                    min={1}
+                    max={10}
+                    defaultValueWhenEmpty={5}
+                    label="Hambre"
+                    onChange={setHungerLevel}
+                  />
+                  <ScaleBlock
+                    metricKey="cravings_level"
+                    value={cravingsLevel}
+                    min={1}
+                    max={10}
+                    defaultValueWhenEmpty={5}
+                    label="Antojos"
+                    onChange={setCravingsLevel}
+                  />
+                  <ScaleBlock
+                    metricKey="digestion_quality"
+                    value={digestionQuality}
+                    min={1}
+                    max={10}
+                    defaultValueWhenEmpty={5}
+                    label="Digestión"
+                    onChange={setDigestionQuality}
+                  />
                 </div>
 
                 <div>
