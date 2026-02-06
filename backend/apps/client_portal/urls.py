@@ -4,7 +4,8 @@ from apps.plans.views import ClientCurrentCycleView
 from apps.appointments.views import ClientAppointmentView
 from apps.tracking.views import ClientTrainingLogMeView, ClientDietLogMeView
 from .views import (
-    ClientDashboardView, ClientPlanViewSet, ClientCurrentPlanView, ClientPlanPDFView
+    ClientDashboardView, ClientPlanViewSet, ClientCurrentPlanView, ClientPlanPDFView,
+    ClientDailyExerciseView, ClientDailyExerciseCompleteView,
 )
 
 router = DefaultRouter()
@@ -19,5 +20,7 @@ urlpatterns = [
     path('me/appointments/', ClientAppointmentView.as_view(), name='client-appointments'),
     path('me/training-log/', ClientTrainingLogMeView.as_view(), name='client-me-training-log'),
     path('me/diet-log/', ClientDietLogMeView.as_view(), name='client-me-diet-log'),
+    path('me/daily-exercise/', ClientDailyExerciseView.as_view(), name='client-me-daily-exercise'),
+    path('me/daily-exercise/<int:pk>/complete/', ClientDailyExerciseCompleteView.as_view(), name='client-me-daily-exercise-complete'),
     path('', include(router.urls)),
 ]

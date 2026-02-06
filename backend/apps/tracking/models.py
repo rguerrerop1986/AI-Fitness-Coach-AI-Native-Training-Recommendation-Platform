@@ -431,3 +431,71 @@ class CheckIn(models.Model):
             except Exception:
                 pass
         super().save(*args, **kwargs)
+
+
+class DailyExerciseRecommendation(models.Model):
+    """
+    Persisted daily exercise recommendation for a client (V1 heuristic engine).
+    One record per client per date; generated on first GET or by scheduler.
+    """
+    class Status(models.TextChoices):
+        RECOMMENDED = 'recommended', 'Recomendado'
+        COMPLETED = 'completed', 'Completado'
+        SKIPPED = 'skipped', 'Omitido'
+
+    class Intensity(models.TextChoices):
+        LOW = 'low', 'Baja'
+        MODERATE = 'moderate', 'Moderada'
+        HIGH = 'high', 'Alta'
+
+    class Type(models.TextChoices):
+        MOBILITY = 'mobility', 'Movilidad'
+        CARDIO = 'cardio', 'Cardio'
+        STRENGTH = 'strength', 'Fuerza'
+        CORE = 'core', 'Core'
+        HIIT = 'hiit', 'HIIT'
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='daily_exercise_recommendations',
+    )
+    date = models.DateField(db_index=True)
+    exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='daily_recommendations',
+    )
+    intensity = models.CharField(
+        max_length=20,
+        choices=Intensity.choices,
+        default=Intensity.MODERATE,
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.STRENGTH,
+    )
+    rationale = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.RECOMMENDED,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'daily_exercise_recommendations'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['client', 'date'], name='daily_ex_rec_client_date_unique'),
+        ]
+        indexes = [
+            models.Index(fields=['client', 'date']),
+        ]
+
+    def __str__(self):
+        return f'{self.client.full_name} - {self.date} ({self.get_status_display()})'

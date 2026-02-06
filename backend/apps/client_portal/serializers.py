@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import ClientAccessLog
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
+from apps.tracking.models import DailyExerciseRecommendation
 
 
 class ClientDashboardSerializer(serializers.ModelSerializer):
@@ -184,3 +185,53 @@ class WorkoutPlanDetailSerializer(serializers.ModelSerializer):
                 'exercises': exercises,
             })
         return days_data
+
+
+class DailyExerciseRecommendationSerializer(serializers.ModelSerializer):
+    """Daily exercise recommendation for client plan view."""
+    exercise_name = serializers.SerializerMethodField()
+    exercise_instructions = serializers.SerializerMethodField()
+    exercise_video_url = serializers.SerializerMethodField()
+    exercise_image_url = serializers.SerializerMethodField()
+    exercise_equipment = serializers.SerializerMethodField()
+    duration_minutes = serializers.SerializerMethodField()
+    warning = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DailyExerciseRecommendation
+        fields = [
+            'id', 'date', 'intensity', 'type', 'rationale', 'status',
+            'exercise', 'exercise_name', 'exercise_instructions', 'exercise_video_url', 'exercise_image_url',
+            'exercise_equipment', 'duration_minutes', 'warning', 'metadata',
+        ]
+
+    def _exercise_field(self, obj, attr, default=''):
+        return getattr(obj.exercise, attr, None) or default if obj.exercise else default
+
+    def get_exercise_name(self, obj):
+        return self._exercise_field(obj, 'name', 'Ejercicio recomendado')
+
+    def get_exercise_instructions(self, obj):
+        return self._exercise_field(obj, 'instructions', '')
+
+    def get_exercise_video_url(self, obj):
+        return self._exercise_field(obj, 'video_url', '')
+
+    def get_exercise_image_url(self, obj):
+        return self._exercise_field(obj, 'image_url', '')
+
+    def get_exercise_equipment(self, obj):
+        if obj.exercise and obj.exercise.equipment_type:
+            return obj.exercise.get_equipment_type_display()
+        return ''
+
+    def get_duration_minutes(self, obj):
+        return obj.metadata.get('duration_minutes') or 20
+
+    def get_warning(self, obj):
+        rules = obj.metadata.get('applied_rules') or []
+        if 'pain_high_mobility' in rules:
+            return 'Dolor elevado recientemente: priorizamos descanso activo. Si persiste, consulta a tu médico.'
+        if 'pain_moderate_no_hiit' in rules:
+            return 'Evita impacto hoy; priorizamos movilidad y core suave.'
+        return None

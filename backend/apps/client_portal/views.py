@@ -16,12 +16,15 @@ from django.template import Context
 
 from .models import ClientAccessLog
 from .serializers import (
-    ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer
+    ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer,
+    DailyExerciseRecommendationSerializer,
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
 from apps.plans.serializers import PlanAssignmentSerializer, ClientPlanCycleSerializer
 from apps.common.permissions import IsClient, get_client_from_user
+from apps.tracking.models import DailyExerciseRecommendation
+from apps.recommendations.services.daily_exercise import generate_daily_recommendation
 from django.http import FileResponse
 
 
@@ -306,5 +309,59 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
+
+
+def _daily_exercise_date(request):
+    """Parse ?date=YYYY-MM-DD; default today (timezone-aware)."""
+    raw = request.query_params.get('date')
+    if raw:
+        try:
+            return timezone.datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    return timezone.localdate()
+
+
+class ClientDailyExerciseView(APIView):
+    """GET /api/client/me/daily-exercise/?date=YYYY-MM-DD — get or create today's recommendation."""
+    permission_classes = [IsAuthenticated, IsClient]
+
+    def get(self, request):
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        for_date = _daily_exercise_date(request)
+        rec = generate_daily_recommendation(client, for_date=for_date)
+        serializer = DailyExerciseRecommendationSerializer(rec)
+        return Response(serializer.data)
+
+
+class ClientDailyExerciseCompleteView(APIView):
+    """POST /api/client/me/daily-exercise/<id>/complete/ — mark recommendation as completed."""
+    permission_classes = [IsAuthenticated, IsClient]
+
+    def post(self, request, pk):
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        rec = DailyExerciseRecommendation.objects.filter(
+            id=pk,
+            client=client,
+        ).first()
+        if not rec:
+            return Response(
+                {'error': 'Recomendación no encontrada.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        rec.status = DailyExerciseRecommendation.Status.COMPLETED
+        rec.save(update_fields=['status'])
+        serializer = DailyExerciseRecommendationSerializer(rec)
+        return Response(serializer.data)
 
 

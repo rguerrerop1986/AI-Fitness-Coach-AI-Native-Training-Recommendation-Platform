@@ -10,7 +10,7 @@ from django.db.models import Q, QuerySet
 
 from apps.clients.models import Client
 from apps.plans.models import PlanCycle
-from apps.tracking.models import TrainingLog
+from apps.tracking.models import TrainingLog, DailyExerciseRecommendation
 from apps.catalogs.models import Exercise
 
 
@@ -102,3 +102,48 @@ def get_exercises_for_recommendation(
 def get_last_log(logs: list[TrainingLog]) -> Optional[TrainingLog]:
     """First log in list (logs are ordered by date desc)."""
     return logs[0] if logs else None
+
+
+def get_recent_daily_recommendations(
+    client: Client,
+    days: int = 7,
+    before_date: Optional[date] = None,
+) -> list:
+    """Last N days of daily exercise recommendations (date desc). For variety: avoid repeating type."""
+    end = before_date or date.today()
+    start = end - timedelta(days=days)
+    return list(
+        DailyExerciseRecommendation.objects.filter(
+            client=client,
+            date__gte=start,
+            date__lt=end,
+        )
+        .select_related('exercise')
+        .order_by('-date')
+    )
+
+
+def get_exercises_for_daily_recommendation(
+    *,
+    level: str,
+    max_intensity: Optional[int] = None,
+    tags_any: Optional[list[str]] = None,
+    exclude_type: Optional[str] = None,
+    exclude_exercise_ids: Optional[list[int]] = None,
+) -> QuerySet[Exercise]:
+    """
+    Exercises for daily recommendation: filter by client level (difficulty), intensity, tags.
+    exclude_type: do not recommend this type today (variety; type is our Type enum value).
+    """
+    # Map client level to catalog difficulty
+    qs = Exercise.objects.filter(is_active=True, difficulty=level)
+    if max_intensity is not None:
+        qs = qs.filter(intensity__lte=max_intensity)
+    if tags_any:
+        tag_filter = Q()
+        for tag in tags_any:
+            tag_filter |= Q(tags__contains=[tag])
+        qs = qs.filter(tag_filter)
+    if exclude_exercise_ids:
+        qs = qs.exclude(id__in=exclude_exercise_ids)
+    return qs.order_by('?')
