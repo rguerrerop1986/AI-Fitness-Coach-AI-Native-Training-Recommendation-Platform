@@ -7,6 +7,8 @@ from datetime import date, timedelta
 
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment
+from apps.tracking.models import DailyExerciseRecommendation, TrainingLog, ClientProgressionState
+from apps.catalogs.models import Exercise
 from .models import ClientAccessLog
 
 User = get_user_model()
@@ -273,3 +275,48 @@ class ClientPortalAPITest(APITestCase):
         url = '/api/diet-plans/'
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_complete_daily_exercise_creates_training_log_and_updates_progression(self):
+        """POST complete with post-workout body creates TrainingLog and updates ProgressionState (closed-loop V1.1)."""
+        exercise = Exercise.objects.create(
+            name='Test exercise',
+            muscle_group='quads',
+            difficulty='beginner',
+            intensity=5,
+            instructions='Do it.',
+        )
+        rec = DailyExerciseRecommendation.objects.create(
+            client=self.client_obj,
+            date=date.today(),
+            exercise=exercise,
+            intensity='moderate',
+            type='strength',
+            rationale='Test',
+            status=DailyExerciseRecommendation.Status.RECOMMENDED,
+        )
+        self.client.force_authenticate(user=self.client_user)
+        url = reverse('client-me-daily-exercise-complete', kwargs={'pk': rec.pk})
+        data = {
+            'rpe': 3,
+            'energy_level': 8,
+            'pain_level': 1,
+            'notes': 'Felt good',
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['recommendation']['status'], 'completed')
+        self.assertIn('training_log_id', response.data)
+        self.assertIn('progression_update', response.data)
+        self.assertIn('message', response.data['progression_update'])
+
+        log = TrainingLog.objects.filter(client=self.client_obj, date=date.today()).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.rpe, 3)
+        self.assertEqual(log.energy_level, 8)
+        self.assertEqual(log.pain_level, 1)
+        self.assertEqual(log.execution_status, TrainingLog.ExecutionStatus.DONE)
+        self.assertEqual(log.recommendation_version, 'daily_exercise_v1.1')
+
+        state = ClientProgressionState.objects.filter(client=self.client_obj).first()
+        self.assertIsNotNone(state)
+        self.assertIsNotNone(response.data['progression_update']['outcome_score'])

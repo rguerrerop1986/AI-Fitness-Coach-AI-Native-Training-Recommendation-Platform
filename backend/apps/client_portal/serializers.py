@@ -3,6 +3,7 @@ from .models import ClientAccessLog
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
 from apps.tracking.models import DailyExerciseRecommendation
+from apps.catalogs.models import Exercise
 
 
 class ClientDashboardSerializer(serializers.ModelSerializer):
@@ -235,3 +236,19 @@ class DailyExerciseRecommendationSerializer(serializers.ModelSerializer):
         if 'pain_moderate_no_hiit' in rules:
             return 'Evita impacto hoy; priorizamos movilidad y core suave.'
         return None
+
+
+class CompleteDailyExerciseSerializer(serializers.Serializer):
+    """Request body for POST complete: post-workout metrics (closed-loop V1.1)."""
+    rpe = serializers.IntegerField(min_value=1, max_value=10)
+    energy_level = serializers.IntegerField(min_value=1, max_value=10)
+    pain_level = serializers.IntegerField(min_value=0, max_value=10)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    executed_exercise_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_executed_exercise_id(self, value):
+        if value is None:
+            return value
+        if not Exercise.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError('Ejercicio no encontrado o inactivo.')
+        return value

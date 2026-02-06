@@ -17,14 +17,20 @@ from django.template import Context
 from .models import ClientAccessLog
 from .serializers import (
     ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer,
-    DailyExerciseRecommendationSerializer,
+    DailyExerciseRecommendationSerializer, CompleteDailyExerciseSerializer,
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
 from apps.plans.serializers import PlanAssignmentSerializer, ClientPlanCycleSerializer
 from apps.common.permissions import IsClient, get_client_from_user
-from apps.tracking.models import DailyExerciseRecommendation
+from apps.tracking.models import DailyExerciseRecommendation, TrainingLog
+from apps.catalogs.models import Exercise
 from apps.recommendations.services.daily_exercise import generate_daily_recommendation
+from apps.recommendations.services.progression import (
+    evaluate_outcome,
+    apply_progression_update,
+    get_or_create_progression_state,
+)
 from django.http import FileResponse
 
 
@@ -340,7 +346,7 @@ class ClientDailyExerciseView(APIView):
 
 
 class ClientDailyExerciseCompleteView(APIView):
-    """POST /api/client/me/daily-exercise/<id>/complete/ — mark recommendation as completed."""
+    """POST /api/client/me/daily-exercise/<id>/complete/ — mark completed + post-workout (closed-loop V1.1)."""
     permission_classes = [IsAuthenticated, IsClient]
 
     def post(self, request, pk):
@@ -353,15 +359,83 @@ class ClientDailyExerciseCompleteView(APIView):
         rec = DailyExerciseRecommendation.objects.filter(
             id=pk,
             client=client,
-        ).first()
+        ).select_related('exercise').first()
         if not rec:
             return Response(
                 {'error': 'Recomendación no encontrada.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        # Request body: post-workout metrics (required for closed-loop)
+        body_serializer = CompleteDailyExerciseSerializer(data=request.data or {})
+        if not body_serializer.is_valid():
+            return Response(body_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = body_serializer.validated_data
+
         rec.status = DailyExerciseRecommendation.Status.COMPLETED
         rec.save(update_fields=['status'])
-        serializer = DailyExerciseRecommendationSerializer(rec)
-        return Response(serializer.data)
+
+        # Resolve executed exercise
+        executed_exercise_id = data.get('executed_exercise_id')
+        if executed_exercise_id:
+            executed_exercise = Exercise.objects.filter(id=executed_exercise_id).first()
+        else:
+            executed_exercise = rec.exercise
+
+        # Snapshot progression state before (for audit)
+        state = get_or_create_progression_state(client)
+        progression_before = {
+            'current_load_score': state.current_load_score,
+            'intensity_bias': state.intensity_bias,
+            'high_days_streak': state.high_days_streak,
+            'cooldown_days_remaining': state.cooldown_days_remaining,
+        }
+
+        # Create or update TrainingLog (one per client per date)
+        log, created = TrainingLog.objects.update_or_create(
+            client=client,
+            date=rec.date,
+            defaults={
+                'suggested_exercise': rec.exercise,
+                'executed_exercise': executed_exercise,
+                'execution_status': TrainingLog.ExecutionStatus.DONE,
+                'rpe': data['rpe'],
+                'energy_level': data['energy_level'],
+                'pain_level': data['pain_level'],
+                'notes': data.get('notes') or '',
+                'recommendation_version': 'daily_exercise_v1.1',
+                'recommendation_meta': {
+                    'rec_id': rec.id,
+                    'rec_date': str(rec.date),
+                    'rec_type': rec.type,
+                    'rec_intensity': rec.intensity,
+                    'rules_applied': rec.metadata.get('applied_rules', []),
+                    'progression_before': progression_before,
+                },
+            },
+        )
+        # Update meta with progression_after after we run progression
+        outcome = evaluate_outcome(log)
+        state, delta, message = apply_progression_update(state, outcome)
+        log.recommendation_meta['progression_after'] = {
+            'current_load_score': state.current_load_score,
+            'intensity_bias': state.intensity_bias,
+        }
+        log.save(update_fields=['recommendation_meta'])
+
+        progression_update = {
+            'outcome_score': outcome.outcome_score,
+            'flags': outcome.flags,
+            'intensity_bias_before': delta['intensity_bias_before'],
+            'intensity_bias_after': delta['intensity_bias_after'],
+            'message': message,
+        }
+
+        rec_serializer = DailyExerciseRecommendationSerializer(rec)
+        return Response({
+            'recommendation': rec_serializer.data,
+            'training_log_id': log.id,
+            'progression_update': progression_update,
+        })
 
 

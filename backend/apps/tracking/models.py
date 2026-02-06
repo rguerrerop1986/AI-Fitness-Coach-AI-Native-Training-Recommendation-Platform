@@ -499,3 +499,42 @@ class DailyExerciseRecommendation(models.Model):
 
     def __str__(self):
         return f'{self.client.full_name} - {self.date} ({self.get_status_display()})'
+
+
+class ClientProgressionState(models.Model):
+    """
+    Persistent state for closed-loop recommendation V1.1.
+    One record per client; updated after each completed recommendation (TrainingLog outcome).
+    """
+    client = models.OneToOneField(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='progression_state',
+    )
+    current_load_score = models.FloatField(default=0.0)
+    intensity_bias = models.SmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(-2), MaxValueValidator(2)],
+        help_text='Global intensity adjustment -2 to +2',
+    )
+    preferred_types = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Type weights e.g. {"CARDIO": 0.2, "STRENGTH": 0.1}',
+    )
+    last_recommended_type = models.CharField(max_length=20, null=True, blank=True)
+    high_days_streak = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Consecutive days with HIGH intensity (for guardrail: max 2)',
+    )
+    cooldown_days_remaining = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Days to force low intensity after injury_risk (e.g. 3)',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'client_progression_states'
+
+    def __str__(self):
+        return f'{self.client.full_name} progression (bias={self.intensity_bias})'

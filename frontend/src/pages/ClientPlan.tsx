@@ -59,6 +59,15 @@ interface DailyRecommendation {
   exercise_equipment: string;
   duration_minutes: number;
   warning: string | null;
+  exercise?: number;
+}
+
+interface ProgressionUpdate {
+  outcome_score: number;
+  flags: string[];
+  intensity_bias_before: number;
+  intensity_bias_after: number;
+  message: string;
 }
 
 function todayLocalYYYYMMDD(): string {
@@ -78,6 +87,18 @@ export default function ClientPlan() {
   const [dailyRecLoading, setDailyRecLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completingRecId, setCompletingRecId] = useState<number | null>(null);
+  const [progressionMessage, setProgressionMessage] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [postWorkoutForm, setPostWorkoutForm] = useState({
+    rpe: 5,
+    energy_level: 6,
+    pain_level: 0,
+    notes: '',
+    executed_exercise_id: null as number | null,
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const date = todayLocalYYYYMMDD();
@@ -113,11 +134,44 @@ export default function ClientPlan() {
     }
   };
 
-  const handleCompleteRecommendation = async (id: number) => {
+  const openCompleteModal = (id: number) => {
+    setCompletingRecId(id);
+    setPostWorkoutForm({ rpe: 5, energy_level: 6, pain_level: 0, notes: '', executed_exercise_id: null });
+    setFormErrors({});
+    setProgressionMessage(null);
+    setShowCompleteModal(true);
+  };
+
+  const handlePostWorkoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (completingRecId == null) return;
+    const { rpe, energy_level, pain_level, notes, executed_exercise_id } = postWorkoutForm;
+    const err: Record<string, string> = {};
+    if (rpe < 1 || rpe > 10) err.rpe = 'RPE debe ser entre 1 y 10';
+    if (energy_level < 1 || energy_level > 10) err.energy_level = 'Energía debe ser entre 1 y 10';
+    if (pain_level < 0 || pain_level > 10) err.pain_level = 'Dolor debe ser entre 0 y 10';
+    if (Object.keys(err).length) {
+      setFormErrors(err);
+      return;
+    }
+    setFormErrors({});
     try {
-      setCompletingId(id);
-      const res = await api.post(`/client/me/daily-exercise/${id}/complete/`);
-      setDailyRec(res.data);
+      setCompletingId(completingRecId);
+      const body: { rpe: number; energy_level: number; pain_level: number; notes?: string; executed_exercise_id?: number } = {
+        rpe,
+        energy_level,
+        pain_level,
+        notes: notes || undefined,
+      };
+      if (executed_exercise_id != null) body.executed_exercise_id = executed_exercise_id;
+      const res = await api.post(`/client/me/daily-exercise/${completingRecId}/complete/`, body);
+      setDailyRec(res.data.recommendation);
+      setProgressionMessage(res.data.progression_update?.message ?? null);
+      setShowCompleteModal(false);
+      setCompletingRecId(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.rpe?.[0] ?? err.response?.data?.energy_level?.[0] ?? err.response?.data?.pain_level?.[0] ?? err.response?.data?.error ?? t('clientPortal.downloadPdfFailed');
+      setFormErrors({ submit: typeof msg === 'string' ? msg : JSON.stringify(msg) });
     } finally {
       setCompletingId(null);
     }
@@ -152,7 +206,7 @@ export default function ClientPlan() {
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (err: any) {
-      setError(err.response?.data?.error || t('clientPortal.downloadPdfFailed'));
+      setDownloadError(err.response?.data?.error || t('clientPortal.downloadPdfFailed'));
     }
   };
 
@@ -292,11 +346,16 @@ export default function ClientPlan() {
                 <p className="text-sm text-gray-600 dark:text-gray-400">{dailyRec.exercise_instructions}</p>
               )}
             </div>
+            {progressionMessage && (
+              <div className="mt-3 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded text-primary-800 dark:text-primary-200 text-sm">
+                <strong>Impacto en progresión:</strong> {progressionMessage}
+              </div>
+            )}
             <div className="mt-4 flex gap-3">
               {dailyRec.status !== 'completed' && (
                 <button
                   type="button"
-                  onClick={() => handleCompleteRecommendation(dailyRec.id)}
+                  onClick={() => openCompleteModal(dailyRec.id)}
                   disabled={completingId === dailyRec.id}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 disabled:opacity-50"
                 >
@@ -317,6 +376,88 @@ export default function ClientPlan() {
             </div>
           </div>
         ) : null}
+
+        {/* Post-entreno modal */}
+        {showCompleteModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black/50 dark:bg-black/70" onClick={() => setShowCompleteModal(false)} />
+              <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Post-entreno</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Indica cómo te sentiste para ajustar tu progresión.</p>
+                <form onSubmit={handlePostWorkoutSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RPE (1–10) <span className="text-gray-500">esfuerzo percibido</span></label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={postWorkoutForm.rpe}
+                      onChange={(e) => setPostWorkoutForm((f) => ({ ...f, rpe: parseInt(e.target.value, 10) || 0 }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+                    />
+                    {formErrors.rpe && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.rpe}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Energía (1–10)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={postWorkoutForm.energy_level}
+                      onChange={(e) => setPostWorkoutForm((f) => ({ ...f, energy_level: parseInt(e.target.value, 10) || 0 }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+                    />
+                    {formErrors.energy_level && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.energy_level}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dolor (0–10)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={postWorkoutForm.pain_level}
+                      onChange={(e) => setPostWorkoutForm((f) => ({ ...f, pain_level: parseInt(e.target.value, 10) || 0 }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+                    />
+                    {formErrors.pain_level && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.pain_level}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas (opcional)</label>
+                    <textarea
+                      rows={2}
+                      value={postWorkoutForm.notes}
+                      onChange={(e) => setPostWorkoutForm((f) => ({ ...f, notes: e.target.value }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2"
+                      placeholder="Comentarios..."
+                    />
+                  </div>
+                  {formErrors.submit && <p className="text-sm text-red-600 dark:text-red-400">{formErrors.submit}</p>}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleteModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={completingId !== null}
+                      className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-md disabled:opacity-50"
+                    >
+                      {completingId !== null ? (
+                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block" />
+                      ) : (
+                        'Enviar'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Diet Plan */}
