@@ -262,6 +262,9 @@ class CoachCanFilterLogsTests(TrainingLogDietLogTestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(TrainingLog.objects.filter(client=self.client_a).count(), 1)
+        log = TrainingLog.objects.get(client=self.client_a, date=date.today())
+        # Coach is assigned on create (from client.coach or fallback to first coach)
+        self.assertEqual(log.coach_id, self.coach.id)
 
 
 class CoachDashboardTests(TrainingLogDietLogTestBase):
@@ -276,7 +279,7 @@ class CoachDashboardTests(TrainingLogDietLogTestBase):
         )
         TrainingLog.objects.create(
             client=self.client_a, date=date.today(),
-            plan_cycle=cycle, execution_status='done', pain_level=7,
+            plan_cycle=cycle, coach=self.coach, execution_status='done', pain_level=7,
         )
         self.api.force_authenticate(user=self.coach)
         response = self.api.get('/api/tracking/coach-dashboard/?days=7')

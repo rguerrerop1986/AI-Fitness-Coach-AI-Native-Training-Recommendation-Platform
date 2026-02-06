@@ -328,7 +328,11 @@ export default function ClientPlan() {
                 )}
               </div>
               {dailyRec.rationale && (
-                <p className="text-sm text-gray-700 dark:text-gray-300 italic">Por tu registro: {dailyRec.rationale}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 italic whitespace-pre-wrap break-words">
+                  <span>Por tu registro:</span>
+                  {'\n'}
+                  {dailyRec.rationale}
+                </p>
               )}
               {dailyRec.warning && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-amber-800 dark:text-amber-200 text-sm">
@@ -501,7 +505,11 @@ export default function ClientPlan() {
                               <p>{t('clientPortal.reps')}: {entry.repetitions}</p>
                               {entry.weight_kg && <p>{t('clientPortal.weight')}: {entry.weight_kg} kg</p>}
                               {entry.rest_seconds && <p>{t('clientPortal.rest')}: {entry.rest_seconds}s</p>}
-                              {entry.notes && <p className="text-gray-700 dark:text-gray-300">{entry.notes}</p>}
+                              {entry.notes && (
+                              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                {entry.notes}
+                              </p>
+                            )}
                             </div>
                           </div>
                         ))}

@@ -235,9 +235,11 @@ export default function AICoachDashboard() {
                       <div>
                         <span className="font-medium">Hoy:</span>{' '}
                         {todayLog.suggested_exercise_summary?.name ?? 'Sin sugerencia'}
-                        {todayLog.notes && (
-                          <p className="text-gray-600 dark:text-gray-400 mt-1">{todayLog.notes}</p>
-                        )}
+{todayLog.notes && (
+                                          <p className="text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap break-words">
+                                            {todayLog.notes}
+                                          </p>
+                                        )}
                         <span className="text-gray-500">
                           {STATUS_LABEL[todayLog.execution_status] ?? todayLog.execution_status}
                           {todayLog.rpe != null && ` · RPE ${todayLog.rpe}`}

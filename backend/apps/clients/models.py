@@ -63,6 +63,14 @@ class Client(models.Model):
         related_name='client_profile',
         help_text="Linked User account for client portal access"
     )
+    coach = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='clients',
+        help_text="Coach responsible for this client (must have role=coach)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -34,7 +34,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'level', 'notes', 'consent_checkbox', 'emergency_contact', 'is_active',
             'deactivated_at', 'deactivated_by', 'deactivation_reason',
             'has_portal_access', 'portal_username',
-            'measurements', 'created_at', 'updated_at',
+            'coach', 'measurements', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -48,13 +48,14 @@ class ClientSerializer(serializers.ModelSerializer):
 class ClientCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating clients. Creates a portal User so the client can log in."""
     password = serializers.CharField(write_only=True, min_length=8, style={'input_type': 'password'})
+    coach_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
 
     class Meta:
         model = Client
         fields = [
             'first_name', 'last_name', 'date_of_birth', 'sex', 'email',
             'phone', 'height_m', 'initial_weight_kg', 'level', 'notes',
-            'consent_checkbox', 'emergency_contact', 'password',
+            'consent_checkbox', 'emergency_contact', 'password', 'coach_id',
         ]
 
     def validate_height_m(self, value):
@@ -83,8 +84,34 @@ class ClientCreateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_coach_id(self, value):
+        if value is None:
+            return value
+        try:
+            user = User.objects.get(pk=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Coach user not found.")
+        if user.role != User.Role.COACH:
+            raise serializers.ValidationError("Selected user must have role 'coach'.")
+        return value
+
+    def _resolve_coach(self, validated_data, request):
+        """Resolve coach: request.user if coach/superuser, else explicit coach_id, else first coach."""
+        coach_id = validated_data.pop('coach_id', None)
+        if request and (getattr(request.user, 'role', None) == User.Role.COACH or getattr(request.user, 'is_superuser', False)):
+            return request.user
+        if coach_id is not None:
+            coach = User.objects.filter(pk=coach_id, role=User.Role.COACH).first()
+            if coach:
+                return coach
+        return User.objects.filter(role=User.Role.COACH).order_by('id').first()
+
     def create(self, validated_data):
         password = validated_data.pop('password')
+        request = self.context.get('request')
+        coach = self._resolve_coach(validated_data, request)
+        if coach:
+            validated_data['coach'] = coach
         client = Client.objects.create(**validated_data)
         email = client.email
         # Username for portal login: use email so client can log in with email + password

@@ -150,9 +150,13 @@ class CoachSummaryView(APIView):
     permission_classes = [InternalTokenPermission]
 
     def get(self, request):
-        coach_id = request.query_params.get('coach_id')
-        if not coach_id:
+        raw_coach_id = request.query_params.get('coach_id')
+        if not raw_coach_id:
             return Response({'error': 'coach_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            coach_id = int(raw_coach_id)
+        except (TypeError, ValueError):
+            return Response({'error': 'coach_id must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             days = int(request.query_params.get('days', 7))
             days = min(max(1, days), 90)
@@ -162,9 +166,10 @@ class CoachSummaryView(APIView):
         end_date = timezone.localdate() + timedelta(days=1)
         start_date = end_date - timedelta(days=days)
 
-        # TrainingLogs for this coach's plan_cycles in the window
+        # TrainingLogs assigned to this coach (coach_id) or belonging to this coach's plan_cycles
+        from django.db.models import Q
         logs = TrainingLog.objects.filter(
-            plan_cycle__coach_id=coach_id,
+            Q(coach_id=coach_id) | Q(plan_cycle__coach_id=coach_id),
             date__gte=start_date,
             date__lt=end_date,
         ).select_related('client', 'suggested_exercise', 'executed_exercise', 'plan_cycle').order_by('-date')
@@ -193,13 +198,14 @@ class CoachSummaryView(APIView):
             if not_done_count >= 2:
                 not_done_streak_clients.append({'client_id': cid, 'client_name': last.client.full_name if last else ''})
 
-        # Adherence trend: for each client, adherence in window
+        # Adherence trend: for each client, adherence in window (return 0 when null for cards)
         adherence_trend = []
         for cid in client_ids:
             client_logs = [l for l in logs if l.client_id == cid]
             completed = sum(1 for l in client_logs if l.execution_status in (TrainingLog.ExecutionStatus.DONE, TrainingLog.ExecutionStatus.PARTIAL))
             total = len(client_logs)
             rate = round(completed / total, 2) if total else 0
+            rate = rate if rate is not None else 0
             name = by_client[cid]['client_name']
             adherence_trend.append({'client_id': cid, 'client_name': name, 'adherence_rate': rate, 'logs_count': total})
 

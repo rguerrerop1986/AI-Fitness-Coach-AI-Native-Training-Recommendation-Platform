@@ -332,7 +332,11 @@ export default function WorkoutBuilder({ cycleId }: { cycleId: number }) {
                             <p>Reps: {entry.repetitions}</p>
                             {entry.weight_kg && <p>Weight: {entry.weight_kg} kg</p>}
                             {entry.rest_seconds && <p>Rest: {entry.rest_seconds}s</p>}
-                            {entry.notes && <p className="text-gray-700">{entry.notes}</p>}
+                            {entry.notes && (
+                              <p className="text-gray-700 whitespace-pre-wrap break-words">
+                                {entry.notes}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex space-x-2">

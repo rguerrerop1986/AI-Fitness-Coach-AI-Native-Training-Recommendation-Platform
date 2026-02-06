@@ -172,8 +172,10 @@ export default function ClientAppointments() {
                             </span>
                           </div>
                           {appointment.notes && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                              <strong>Notes:</strong> {appointment.notes}
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 whitespace-pre-wrap break-words">
+                              <strong>Notes:</strong>
+                              {'\n'}
+                              {appointment.notes}
                             </div>
                           )}
                         </div>
@@ -235,8 +237,10 @@ export default function ClientAppointments() {
                             </div>
                           )}
                           {appointment.notes && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                              <strong>Notes:</strong> {appointment.notes}
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 whitespace-pre-wrap break-words">
+                              <strong>Notes:</strong>
+                              {'\n'}
+                              {appointment.notes}
                             </div>
                           )}
                         </div>

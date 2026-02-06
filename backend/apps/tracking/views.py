@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -147,8 +148,9 @@ class CoachDashboardView(APIView):
         end_date = timezone.localdate() + timedelta(days=1)
         start_date = end_date - timedelta(days=days)
 
+        # Show logs assigned to this coach (coach_id) or belonging to this coach's plan_cycles
         logs = TrainingLog.objects.filter(
-            plan_cycle__coach_id=coach_id,
+            Q(coach_id=coach_id) | Q(plan_cycle__coach_id=coach_id),
             date__gte=start_date,
             date__lt=end_date,
         ).select_related('client', 'suggested_exercise', 'executed_exercise', 'plan_cycle').order_by('-date')
@@ -193,6 +195,8 @@ class CoachDashboardView(APIView):
             completed = sum(1 for l in client_logs if l.execution_status in (TrainingLog.ExecutionStatus.DONE, TrainingLog.ExecutionStatus.PARTIAL))
             total = len(client_logs)
             rate = round(completed / total, 2) if total else 0
+            # Ensure adherence_rate is never null for the card (use 0)
+            rate = rate if rate is not None else 0
             adherence_trend.append({'client_id': cid, 'client_name': by_client[cid]['client_name'], 'adherence_rate': rate, 'logs_count': total})
 
         return Response({

@@ -49,6 +49,8 @@ class ClientCreateWithPortalUserTest(TestCase):
         self.assertTrue(user.check_password('securepass123'))
         self.assertEqual(response.data.get('portal_username'), user.username)
         self.assertTrue(response.data.get('has_portal_access'))
+        # Coach creating client assigns coach_id to the requesting coach
+        self.assertEqual(client.coach_id, self.coach.id)
 
     def test_create_client_requires_password(self):
         self.api.force_authenticate(user=self.coach)

@@ -1,6 +1,19 @@
 from decimal import Decimal
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import CheckIn, TrainingLog, DietLog
+
+User = get_user_model()
+
+
+def _coach_for_client(client):
+    """Resolve coach: client.coach if set, else first user with role=coach."""
+    if client is None:
+        return None
+    coach = getattr(client, 'coach', None)
+    if coach is not None:
+        return coach
+    return User.objects.filter(role=User.Role.COACH).order_by('id').first()
 
 # ---- Structural check-in: soft ranges (Spanish messages) ----
 STRUCTURAL_RANGES = {
@@ -57,6 +70,16 @@ class TrainingLogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Debe estar entre 0 y 10.')
         return value
 
+    def create(self, validated_data):
+        client = validated_data.get('client')
+        if isinstance(client, int):
+            from apps.clients.models import Client
+            client = Client.objects.filter(pk=client).first()
+        coach = _coach_for_client(client)
+        if coach:
+            validated_data['coach'] = coach
+        return super().create(validated_data)
+
 
 class DietLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -89,6 +112,16 @@ class DietLogSerializer(serializers.ModelSerializer):
         if value is not None and (value < 1 or value > 10):
             raise serializers.ValidationError('Debe estar entre 1 y 10.')
         return value
+
+    def create(self, validated_data):
+        client = validated_data.get('client')
+        if isinstance(client, int):
+            from apps.clients.models import Client
+            client = Client.objects.filter(pk=client).first()
+        coach = _coach_for_client(client)
+        if coach:
+            validated_data['coach'] = coach
+        return super().create(validated_data)
 
 
 def _round2(value):
