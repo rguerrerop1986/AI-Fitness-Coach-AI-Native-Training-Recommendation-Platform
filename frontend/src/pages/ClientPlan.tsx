@@ -70,14 +70,6 @@ interface ProgressionUpdate {
   message: string;
 }
 
-function todayLocalYYYYMMDD(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 export default function ClientPlan() {
   const { t, i18n: i18nInstance } = useTranslation();
   const { theme, toggleTheme } = useTheme();
@@ -101,7 +93,6 @@ export default function ClientPlan() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const date = todayLocalYYYYMMDD();
     setLoading(true);
     setDailyRecLoading(true);
     let done = 0;
@@ -109,7 +100,7 @@ export default function ClientPlan() {
       done += 1;
       if (done === 2) setLoading(false);
     };
-    api.get('/client/me/daily-exercise/', { params: { date } })
+    api.get('/client/me/daily-exercise/')
       .then((r) => setDailyRec(r.data))
       .catch(() => setDailyRec(null))
       .finally(() => { setDailyRecLoading(false); maybeDone(); });
@@ -314,10 +305,13 @@ export default function ClientPlan() {
           </div>
         ) : dailyRec ? (
           <div className="mb-8 bg-white dark:bg-gray-800 shadow rounded-lg p-6 border-l-4 border-primary-500">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">
               <Dumbbell className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-              Ejercicio recomendado para hoy
+              Recomendación de hoy
             </h2>
+            {dailyRec.date && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{dailyRec.date}</p>
+            )}
             <div className="space-y-3">
               <p className="font-medium text-gray-900 dark:text-gray-100">{dailyRec.exercise_name}</p>
               <div className="flex flex-wrap gap-2 text-sm text-gray-600 dark:text-gray-400">

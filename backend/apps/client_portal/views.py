@@ -317,19 +317,8 @@ class ClientPlanViewSet(viewsets.ReadOnlyModelViewSet):
         return ip
 
 
-def _daily_exercise_date(request):
-    """Parse ?date=YYYY-MM-DD; default today (timezone-aware)."""
-    raw = request.query_params.get('date')
-    if raw:
-        try:
-            return timezone.datetime.strptime(raw, '%Y-%m-%d').date()
-        except ValueError:
-            pass
-    return timezone.localdate()
-
-
 class ClientDailyExerciseView(APIView):
-    """GET /api/client/me/daily-exercise/?date=YYYY-MM-DD — get or create today's recommendation."""
+    """GET /api/client/me/daily-exercise/ — get or create today's recommendation (server date, TIME_ZONE)."""
     permission_classes = [IsAuthenticated, IsClient]
 
     def get(self, request):
@@ -339,8 +328,8 @@ class ClientDailyExerciseView(APIView):
                 {'error': 'Client profile not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        for_date = _daily_exercise_date(request)
-        rec = generate_daily_recommendation(client, for_date=for_date)
+        today = timezone.localdate()
+        rec = generate_daily_recommendation(client, for_date=today)
         serializer = DailyExerciseRecommendationSerializer(rec)
         return Response(serializer.data)
 
