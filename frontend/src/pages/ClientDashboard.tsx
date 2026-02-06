@@ -16,6 +16,7 @@ import {
   Sun,
   ClipboardList
 } from 'lucide-react'
+import { useClientAuth } from '../contexts/ClientAuthContext'
 import { api } from '../lib/api'
 
 interface ClientData {
@@ -56,41 +57,38 @@ interface ClientData {
 export default function ClientDashboard() {
   const { theme, toggleTheme } = useTheme()
   const { t, i18n: i18nInstance } = useTranslation()
+  const { logout } = useClientAuth()
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchClientData()
-  }, [])
-
-  const fetchClientData = async () => {
-    try {
-      const response = await api.get('/client/dashboard/')
-      setClientData(response.data)
-    } catch (error: any) {
-      console.error('Error fetching client data:', error)
-      if (error.response?.status === 401) {
-        // Token expired or invalid, redirect to root (role selector)
-        localStorage.removeItem('client_access_token')
-        localStorage.removeItem('client_refresh_token')
-        localStorage.removeItem('client_info')
-        navigate('/')
-        return
+    const controller = new AbortController()
+    const fetchClientData = async () => {
+      try {
+        const response = await api.get('/client/dashboard/', { signal: controller.signal })
+        setClientData(response.data)
+      } catch (err: any) {
+        if (controller.signal.aborted) return
+        console.error('Error fetching client data:', err)
+        if (err.response?.status === 401) {
+          logout()
+          navigate('/', { replace: true })
+          return
+        }
+        setError(t('clientPortal.dashboardLoadFailed'))
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
       }
-      setError(t('clientPortal.dashboardLoadFailed'))
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchClientData()
+    return () => controller.abort()
+  }, [t, logout, navigate])
 
   const handleLogout = () => {
-    localStorage.removeItem('client_access_token')
-    localStorage.removeItem('client_refresh_token')
-    localStorage.removeItem('client_info')
-    delete api.defaults.headers.common['Authorization']
-    navigate('/')
+    logout()
+    navigate('/', { replace: true })
   }
 
   const downloadCurrentPlanPdf = async () => {

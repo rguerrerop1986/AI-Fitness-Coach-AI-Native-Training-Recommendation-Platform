@@ -41,7 +41,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   // Defense in depth: only redirect if user is explicitly a client
@@ -65,7 +65,7 @@ function ClientProtectedRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!client) {
-    return <Navigate to="/client/login" replace />
+    return <Navigate to="/" replace />
   }
   
   return <>{children}</>

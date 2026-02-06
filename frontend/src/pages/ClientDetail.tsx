@@ -224,7 +224,7 @@ export default function ClientDetail() {
     if (!trend) return null;
     
     const sign = trend.isPositive ? '+' : '';
-    const color = trend.isPositive ? 'text-green-600' : trend.isNegative ? 'text-red-600' : 'text-gray-600';
+    const color = trend.isPositive ? 'text-green-600 dark:text-green-400' : trend.isNegative ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400';
     const icon = trend.isPositive ? '↗' : trend.isNegative ? '↘' : '→';
     
     return (
@@ -251,7 +251,7 @@ export default function ClientDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -263,10 +263,10 @@ export default function ClientDetail() {
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-800">Cliente no encontrado</div>
+            <div className="text-red-800 dark:text-red-200">Cliente no encontrado</div>
           </div>
         </div>
       </div>
@@ -277,23 +277,23 @@ export default function ClientDetail() {
   const weightTrend = calculateTrend(checkIns, 'weight_kg');
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                   {client.first_name} {client.last_name}
                 </h1>
                 {client.is_active === false && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
                     Inactivo
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 Client since {formatDate(client.created_at)}
               </p>
             </div>
@@ -301,7 +301,7 @@ export default function ClientDetail() {
               {client.is_active === false ? (
                 <>
                   <span
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-500 bg-gray-100 cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
                     title="Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos."
                   >
                     <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +310,7 @@ export default function ClientDetail() {
                     New Check-In
                   </span>
                   <span
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-500 bg-gray-100 cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
                     title="Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos."
                   >
                     New Plan
@@ -342,7 +342,7 @@ export default function ClientDetail() {
                   </button>
                   <button
                     onClick={() => setShowDeactivateModal(true)}
-                    className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    className="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
                     Dar de baja
                   </button>
@@ -350,21 +350,21 @@ export default function ClientDetail() {
               )}
               <button
                 onClick={() => navigate('/clients')}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 ← Back to Clients
               </button>
             </div>
           </div>
           {client.is_active === false && (
-            <p className="mt-2 text-sm text-amber-700">
+            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
               Cliente inactivo. Reactívalo para crear nuevos planes o seguimientos.
             </p>
           )}
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="mb-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-4">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -372,8 +372,8 @@ export default function ClientDetail() {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</div>
               </div>
             </div>
           </div>
@@ -382,42 +382,42 @@ export default function ClientDetail() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Client Information */}
           <div className="lg:col-span-1">
-            <div className="bg-white shadow-lg rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Información del cliente</h2>
+            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Información del cliente</h2>
               </div>
               <div className="px-6 py-4">
                 <dl className="space-y-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Nombre completo</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.first_name} {client.last_name}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Nombre completo</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.first_name} {client.last_name}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Edad</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{getAge(client.date_of_birth)} years old</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Edad</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{getAge(client.date_of_birth)} years old</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Sexo</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Sexo</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                       {client.sex === 'M' ? 'Male' : client.sex === 'F' ? 'Female' : 'Other'}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.email}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.email}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Telefono</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.phone}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Telefono</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.phone}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Estatura</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.height_m} m</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Estatura</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.height_m} m</dd>
                   </div>
                   {client.level && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Nivel</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Nivel</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                         {client.level === 'Principiante' && 'Principiante'}
                         {client.level === 'Intermedio' && 'Intermedio'}
                         {client.level === 'Avanzado' && 'Avanzado'}
@@ -425,43 +425,43 @@ export default function ClientDetail() {
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Peso inicial</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.initial_weight_kg} kg</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Peso inicial</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.initial_weight_kg} kg</dd>
                   </div>
                   {client.emergency_contact && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Contacto de emergencia</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{client.emergency_contact}</dd>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Contacto de emergencia</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.emergency_contact}</dd>
                     </div>
                   )}
                   {client.notes && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Notas adicionales</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{client.notes}</dd>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Notas adicionales</dt>
+                      <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{client.notes}</dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Acceso al portal</dt>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Acceso al portal</dt>
                     <dd className="mt-1 text-sm">
                       {client.has_portal_access ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                           Not Set
                         </span>
                       )}
                       {client.portal_username && (
-                        <span className="ml-2 text-gray-600">({client.portal_username})</span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">({client.portal_username})</span>
                       )}
                     </dd>
                   </div>
                 </dl>
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => setShowPasswordModal(true)}
-                    className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     {client.has_portal_access ? 'Update Portal Password' : 'Set Portal Password'}
                   </button>
@@ -470,27 +470,27 @@ export default function ClientDetail() {
             </div>
 
             {/* Quick Stats */}
-            <div className="mt-6 bg-white shadow-lg rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Estadísticos:</h2>
+            <div className="mt-6 bg-white dark:bg-gray-800 shadow-lg rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Estadísticos:</h2>
               </div>
               <div className="px-6 py-4">
                 <dl className="space-y-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Total de seguimientos</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">{checkIns.length}</dd>
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Total de seguimientos</dt>
+                    <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{checkIns.length}</dd>
                   </div>
                   {latestCheckIn && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Último peso registrado</dt>
-                      <dd className="mt-1 text-2xl font-semibold text-gray-900">
+<dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Último peso registrado</dt>
+                    <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                         {latestCheckIn.weight_kg} kg
                       </dd>
                     </div>
                   )}
                   {weightTrend && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Tendencia del peso</dt>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Tendencia del peso</dt>
                       <dd className="mt-1 text-sm">
                         {formatTrend(weightTrend)}
                       </dd>
@@ -504,10 +504,10 @@ export default function ClientDetail() {
           {/* Progress Chart and Check-Ins */}
           <div className="lg:col-span-2 space-y-6">
             {/* Progress Chart */}
-            <div className="bg-white shadow-lg rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
+            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-gray-900">Gráfico de progreso</h2>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Gráfico de progreso</h2>
                   <select
                     value={selectedMetric}
                     onChange={(e) => setSelectedMetric(e.target.value)}
@@ -553,8 +553,8 @@ export default function ClientDetail() {
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No hay datos para mostrar</h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No hay datos para mostrar</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                       Crear un seguimiento para ver el gráfico de progreso.
                     </p>
                   </div>
@@ -563,11 +563,11 @@ export default function ClientDetail() {
             </div>
 
             {/* Check-Ins History */}
-            <div className="bg-white shadow-lg rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
+            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-gray-900">Seguimientos registrados:</h2>
-                  <span className="text-sm text-gray-500">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Seguimientos registrados:</h2>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {checkIns.length} seguimiento{checkIns.length !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -578,8 +578,8 @@ export default function ClientDetail() {
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No hay seguimientos registrados</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+<h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No hay seguimientos registrados</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Comienza a registrar seguimientos para ver el progreso del cliente.
                   </p>
                   <div className="mt-6">
@@ -597,44 +597,44 @@ export default function ClientDetail() {
                 </div>
               ) : (
                 <div className="overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Fecha
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Peso
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Grasa Corporal
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Adherencia
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Notas
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {checkIns
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                         .map((checkIn) => (
-                          <tr key={checkIn.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <tr key={checkIn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                               {formatDate(checkIn.date)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                               {checkIn.weight_kg} kg
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                               {checkIn.body_fat_pct ? `${checkIn.body_fat_pct}%` : '-'}
                             </td>
-                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                              {checkIn.diet_adherence ? `${checkIn.diet_adherence}%` : '-'}
                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                               {checkIn.notes ? (
                                 <span className="truncate max-w-xs block" title={checkIn.notes}>
                                   {checkIn.notes}
@@ -659,10 +659,10 @@ export default function ClientDetail() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
                 {client.has_portal_access ? 'Update Portal Password' : 'Set Portal Password'}
               </h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 {client.has_portal_access
                   ? 'Enter a new password for the client portal. The client will use their email as username.'
                   : 'Set a password so the client can access the portal. They will use their email as username.'}
@@ -679,7 +679,7 @@ export default function ClientDetail() {
               )}
               <form onSubmit={handleSetPassword}>
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Password (min. 8 characters)
                   </label>
                   <input
@@ -702,7 +702,7 @@ export default function ClientDetail() {
                       setPasswordError(null);
                       setPasswordSuccess(null);
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>
@@ -725,13 +725,13 @@ export default function ClientDetail() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Dar de baja cliente</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Dar de baja cliente</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Se cancelarán automáticamente todas las citas futuras del cliente.
               </p>
               <form onSubmit={handleDeactivate}>
                 <div className="mb-4">
-                  <label htmlFor="deactivate-reason" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="deactivate-reason" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Motivo (opcional)
                   </label>
                   <input
@@ -750,7 +750,7 @@ export default function ClientDetail() {
                       setShowDeactivateModal(false);
                       setDeactivateReason('');
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancelar
                   </button>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
+import { useClientAuth } from '../contexts/ClientAuthContext'
 import { Dumbbell, Apple, Calendar, Moon, Sun, LogOut, User, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatLocalYYYYMMDD } from '../lib/date'
@@ -113,6 +114,7 @@ interface DietLogData {
 export default function DailyLog() {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
+  const { logout } = useClientAuth()
   const [selectedDate, setSelectedDate] = useState(formatLocalYYYYMMDD())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -275,11 +277,8 @@ export default function DailyLog() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('client_access_token')
-    localStorage.removeItem('client_refresh_token')
-    localStorage.removeItem('client_info')
-    delete (api.defaults.headers as any).common?.['Authorization']
-    navigate('/')
+    logout()
+    navigate('/', { replace: true })
   }
 
   return (
@@ -397,9 +396,9 @@ export default function DailyLog() {
                     {showExerciseDropdown && (exerciseSearch || exerciseResults.length > 0) && (
                       <ul className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
                         {exerciseSearching ? (
-                          <li className="px-3 py-2 text-sm text-gray-500">Buscando...</li>
+                          <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Buscando...</li>
                         ) : exerciseResults.length === 0 ? (
-                          <li className="px-3 py-2 text-sm text-gray-500">Sin resultados</li>
+                          <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
                         ) : (
                           exerciseResults.map((ex) => (
                             <li

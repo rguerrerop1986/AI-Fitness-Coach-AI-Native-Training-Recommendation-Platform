@@ -98,8 +98,18 @@ def _round2(value):
 
 
 class CheckInSerializer(serializers.ModelSerializer):
-    """Read: expone rc_1min (alias de rc_1min_bpm) y todos los campos ESTRUCTURAL."""
+    """Read: expone rc_1min (alias de rc_1min_bpm), client como {id, first_name, last_name}, y todos los campos ESTRUCTURAL."""
     rc_1min = serializers.IntegerField(source='rc_1min_bpm', read_only=True)
+    client = serializers.SerializerMethodField(read_only=True)
+
+    def get_client(self, obj):
+        if not obj.client_id:
+            return None
+        return {
+            'id': obj.client.id,
+            'first_name': obj.client.first_name,
+            'last_name': obj.client.last_name,
+        }
 
     class Meta:
         model = CheckIn

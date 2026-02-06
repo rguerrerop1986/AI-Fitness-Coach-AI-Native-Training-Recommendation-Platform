@@ -52,7 +52,7 @@ export default function CheckIns() {
   const fetchData = async () => {
     try {
       // Fetch all check-ins
-      const checkInsResponse = await api.get('/check-ins/');
+      const checkInsResponse = await api.get('/tracking/check-ins/');
       setCheckIns(checkInsResponse.data.results || checkInsResponse.data);
 
       // Fetch all clients

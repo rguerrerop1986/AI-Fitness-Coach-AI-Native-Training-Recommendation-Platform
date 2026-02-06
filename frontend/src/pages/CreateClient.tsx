@@ -89,21 +89,21 @@ export default function CreateClient() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow-lg rounded-lg">
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{t('clients.createNewClient')}</h1>
-                <p className="mt-1 text-sm text-gray-600">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('clients.createNewClient')}</h1>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                   {t('clients.addNewClientDescription')}
                 </p>
               </div>
               <button
                 onClick={() => navigate('/clients')}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 ← {t('common.back')} {t('navigation.clients')}
               </button>
@@ -113,7 +113,7 @@ export default function CreateClient() {
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-6">
             {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="mb-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -121,8 +121,8 @@ export default function CreateClient() {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">{t('common.error')}</h3>
-                    <div className="mt-2 text-sm text-red-700">{error}</div>
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">{t('common.error')}</h3>
+                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</div>
                   </div>
                 </div>
               </div>
@@ -132,11 +132,11 @@ export default function CreateClient() {
               {/* Personal Information */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.personalInformation')}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('clients.personalInformation')}</h3>
                   
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.firstName')} *
                       </label>
                       <input
@@ -146,12 +146,12 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.first_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.first_name.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.first_name.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.lastName')} *
                       </label>
                       <input
@@ -161,13 +161,13 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.last_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.last_name.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.last_name.message}</p>
                       )}
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t('clients.dateOfBirth')} *
                     </label>
                     <input
@@ -177,12 +177,12 @@ export default function CreateClient() {
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                     {errors.date_of_birth && (
-                      <p className="mt-1 text-sm text-red-600">{errors.date_of_birth.message}</p>
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.date_of_birth.message}</p>
                     )}
                   </div>
 
                   <div className="mt-4">
-                    <label htmlFor="sex" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="sex" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t('clients.sex')} *
                     </label>
                     <select
@@ -195,18 +195,18 @@ export default function CreateClient() {
                       <option value="O">{t('clients.other')}</option>
                     </select>
                     {errors.sex && (
-                      <p className="mt-1 text-sm text-red-600">{errors.sex.message}</p>
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.sex.message}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Contact Information */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.contactInformation')}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('clients.contactInformation')}</h3>
                   
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('auth.email')} *
                       </label>
                       <input
@@ -216,12 +216,12 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.phone')} *
                       </label>
                       <input
@@ -231,7 +231,7 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.phone.message}</p>
                       )}
                     </div>
                   </div>
@@ -239,11 +239,11 @@ export default function CreateClient() {
 
                 {/* Portal access (client login) */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.portalAccess')}</h3>
-                  <p className="text-sm text-gray-500 mb-4">{t('clients.portalAccessDescription')}</p>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('clients.portalAccess')}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('clients.portalAccessDescription')}</p>
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.portalPassword')} *
                       </label>
                       <input
@@ -255,11 +255,11 @@ export default function CreateClient() {
                         autoComplete="new-password"
                       />
                       {errors.password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
                       )}
                     </div>
                     <div>
-                      <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.portalPasswordConfirm')} *
                       </label>
                       <input
@@ -271,7 +271,7 @@ export default function CreateClient() {
                         autoComplete="new-password"
                       />
                       {errors.password_confirm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password_confirm.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password_confirm.message}</p>
                       )}
                     </div>
                   </div>
@@ -282,11 +282,11 @@ export default function CreateClient() {
               <div className="space-y-6">
                 {/* Physical Information */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.physicalInformation')}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('clients.physicalInformation')}</h3>
                   
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="height_m" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="height_m" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.height')} (m) *
                       </label>
                       <input
@@ -299,14 +299,14 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         placeholder="1.85"
                       />
-                      <p className="mt-0.5 text-xs text-gray-500">Estatura en metros (ej. 1.85)</p>
+                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Estatura en metros (ej. 1.85)</p>
                       {errors.height_m && (
-                        <p className="mt-1 text-sm text-red-600">{errors.height_m.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.height_m.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="level" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="level" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.level', 'Nivel del cliente')} *
                       </label>
                       <select
@@ -320,7 +320,7 @@ export default function CreateClient() {
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="initial_weight_kg" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="initial_weight_kg" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.initialWeight')} *
                       </label>
                       <input
@@ -332,7 +332,7 @@ export default function CreateClient() {
                         step="0.1"
                       />
                       {errors.initial_weight_kg && (
-                        <p className="mt-1 text-sm text-red-600">{errors.initial_weight_kg.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.initial_weight_kg.message}</p>
                       )}
                     </div>
                   </div>
@@ -340,11 +340,11 @@ export default function CreateClient() {
 
                 {/* Emergency Contact */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('clients.emergencyContact')}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('clients.emergencyContact')}</h3>
                   
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="emergency_contact_name" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="emergency_contact_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.emergencyContactName')} *
                       </label>
                       <input
@@ -354,12 +354,12 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.emergency_contact_name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_name.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.emergency_contact_name.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="emergency_contact_phone" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="emergency_contact_phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.emergencyContactPhone')} *
                       </label>
                       <input
@@ -369,12 +369,12 @@ export default function CreateClient() {
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.emergency_contact_phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_phone.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.emergency_contact_phone.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="emergency_contact_relationship" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="emergency_contact_relationship" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         {t('clients.emergencyContactRelationship')} *
                       </label>
                       <input
@@ -385,7 +385,7 @@ export default function CreateClient() {
                         placeholder="e.g., Spouse, Parent, Friend"
                       />
                       {errors.emergency_contact_relationship && (
-                        <p className="mt-1 text-sm text-red-600">{errors.emergency_contact_relationship.message}</p>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.emergency_contact_relationship.message}</p>
                       )}
                     </div>
                   </div>
@@ -393,7 +393,7 @@ export default function CreateClient() {
 
                 {/* Notes */}
                 <div>
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('clients.notes')}
                   </label>
                   <textarea
@@ -404,7 +404,7 @@ export default function CreateClient() {
                     placeholder="Any additional notes about the client..."
                   />
                   {errors.notes && (
-                    <p className="mt-1 text-sm text-red-600">{errors.notes.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.notes.message}</p>
                   )}
                 </div>
 
@@ -419,14 +419,14 @@ export default function CreateClient() {
                     />
                   </div>
                   <div className="ml-3 text-sm">
-                    <label htmlFor="consent_checkbox" className="font-medium text-gray-700">
+                    <label htmlFor="consent_checkbox" className="font-medium text-gray-700 dark:text-gray-300">
                       {t('clients.consent')} *
                     </label>
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 dark:text-gray-400">
                       {t('clients.consentText')}
                     </p>
                     {errors.consent_checkbox && (
-                      <p className="mt-1 text-sm text-red-600">{errors.consent_checkbox.message}</p>
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.consent_checkbox.message}</p>
                     )}
                   </div>
                 </div>
@@ -438,7 +438,7 @@ export default function CreateClient() {
               <button
                 type="button"
                 onClick={() => navigate('/clients')}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 {t('common.cancel')}
               </button>

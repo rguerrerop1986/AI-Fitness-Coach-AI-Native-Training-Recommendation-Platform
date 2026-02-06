@@ -25,7 +25,7 @@ class CheckInViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filter check-ins by client if client_id is provided in URL."""
-        queryset = CheckIn.objects.all()
+        queryset = CheckIn.objects.select_related('client').all()
         client_id = self.kwargs.get('client_pk')
         if client_id is not None:
             queryset = queryset.filter(client_id=client_id)

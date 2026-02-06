@@ -59,7 +59,7 @@ export default function Layout() {
 
   const handleLogout = () => {
     logout()
-    navigate('/')
+    navigate('/', { replace: true })
   }
 
   return (

@@ -60,7 +60,7 @@ export default function Clients() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -71,19 +71,19 @@ export default function Clients() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{t('clients.title')}</h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('clients.title')}</h1>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 {t('clients.subtitle')}
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <input
                   type="checkbox"
                   checked={showInactive}
@@ -114,8 +114,8 @@ export default function Clients() {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">{t('common.error')}</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">{t('common.error')}</h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</div>
               </div>
             </div>
           </div>
@@ -127,8 +127,8 @@ export default function Clients() {
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No clients</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating a new client.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No clients</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new client.</p>
             <div className="mt-6">
               <button
                 onClick={() => navigate('/clients/create')}
@@ -146,55 +146,55 @@ export default function Clients() {
             {clients.map((client) => (
               <div
                 key={client.id}
-                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200 cursor-pointer"
                 onClick={() => navigate(`/clients/${client.id}`)}
               >
                 <div className="px-4 py-5 sm:p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-800">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
                           {client.first_name.charAt(0)}{client.last_name.charAt(0)}
                         </span>
                       </div>
                     </div>
                     <div className="ml-4 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-medium text-gray-900">
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                           {client.first_name} {client.last_name}
                         </h3>
                         {client.is_active === false && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
                             Inactivo
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{client.email}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{client.email}</p>
                     </div>
                   </div>
                   
                   <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <dt className="font-medium text-gray-500">Age</dt>
-                      <dd className="text-gray-900">{getAge(client.date_of_birth)} years</dd>
+                      <dt className="font-medium text-gray-500 dark:text-gray-400">Age</dt>
+                      <dd className="text-gray-900 dark:text-gray-100">{getAge(client.date_of_birth)} years</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-gray-500">Sex</dt>
-                      <dd className="text-gray-900">
+                      <dt className="font-medium text-gray-500 dark:text-gray-400">Sex</dt>
+                      <dd className="text-gray-900 dark:text-gray-100">
                         {client.sex === 'M' ? 'Male' : client.sex === 'F' ? 'Female' : 'Other'}
                       </dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-gray-500">Height</dt>
-                      <dd className="text-gray-900">{client.height_cm} cm</dd>
+                      <dt className="font-medium text-gray-500 dark:text-gray-400">Height</dt>
+                      <dd className="text-gray-900 dark:text-gray-100">{client.height_cm} cm</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-gray-500">Weight</dt>
-                      <dd className="text-gray-900">{client.initial_weight_kg} kg</dd>
+                      <dt className="font-medium text-gray-500 dark:text-gray-400">Weight</dt>
+                      <dd className="text-gray-900 dark:text-gray-100">{client.initial_weight_kg} kg</dd>
                     </div>
                   </div>
                   
-                  <div className="mt-4 text-xs text-gray-500">
+                  <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                     Added on {formatDate(client.created_at)}
                   </div>
                 </div>
