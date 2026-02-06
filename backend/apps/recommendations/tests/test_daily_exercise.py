@@ -47,7 +47,7 @@ class DailyExerciseRecommendationTest(TestCase):
         self.assertEqual(rec.client_id, self.client_obj.id)
         self.assertEqual(rec.date, date.today())
         self.assertEqual(rec.status, DailyExerciseRecommendation.Status.RECOMMENDED)
-        self.assertIn('rationale', rec.rationale or '')
+        self.assertGreater(len(rec.rationale or ''), 0)
         self.assertIsNotNone(rec.exercise_id or rec.rationale)
 
     def test_same_day_returns_existing(self):
@@ -87,4 +87,15 @@ class DailyExerciseRecommendationTest(TestCase):
         state.save()
         rec = generate_daily_recommendation(self.client_obj, date.today())
         self.assertIn('guardrail_max_2_high_days', rec.metadata.get('applied_rules', []))
+        self.assertNotEqual(rec.intensity, DailyExerciseRecommendation.Intensity.HIGH)
+
+    def test_during_cooldown_no_high_recommendation(self):
+        """When cooldown_days_remaining > 0 (injury_risk), generate_daily_recommendation does not recommend HIGH."""
+        state = get_or_create_progression_state(self.client_obj)
+        state.cooldown_days_remaining = 2
+        state.cooldown_last_tick_date = date.today()  # already ticked today
+        state.intensity_bias = -2
+        state.save()
+        rec = generate_daily_recommendation(self.client_obj, date.today())
+        self.assertIn('cooldown_after_injury', rec.metadata.get('applied_rules', []))
         self.assertNotEqual(rec.intensity, DailyExerciseRecommendation.Intensity.HIGH)

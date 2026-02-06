@@ -9,6 +9,7 @@ from apps.recommendations.services.progression import (
     evaluate_outcome,
     apply_progression_update,
     get_or_create_progression_state,
+    tick_cooldown_by_day,
     OutcomeResult,
 )
 
@@ -119,10 +120,12 @@ class ProgressionApplyUpdateTest(TestCase):
     def test_injury_risk_cooldown(self):
         self.state.intensity_bias = 1
         self.state.save()
+        today = date(2026, 2, 1)
         outcome = OutcomeResult(outcome_score=-2, flags=['injury_risk'])
-        state, delta, msg = apply_progression_update(self.state, outcome)
+        state, delta, msg = apply_progression_update(self.state, outcome, log_date=today)
         self.assertEqual(state.intensity_bias, -2)
         self.assertEqual(state.cooldown_days_remaining, 3)
+        self.assertEqual(state.cooldown_last_tick_date, today)
         self.assertIn('Dolor alto', msg)
 
     def test_intensity_bias_increases_when_load_high(self):
@@ -140,3 +143,62 @@ class ProgressionApplyUpdateTest(TestCase):
         outcome = OutcomeResult(outcome_score=-1, flags=['too_hard'])
         state, delta, msg = apply_progression_update(self.state, outcome)
         self.assertEqual(state.intensity_bias, -1)
+
+
+class TickCooldownByDayTest(TestCase):
+    """Cooldown ticks by calendar day (on GET/generate), not per session."""
+
+    def setUp(self):
+        self.client_obj = Client.objects.create(
+            first_name='Tick',
+            last_name='Client',
+            email='tick@test.com',
+            date_of_birth='1990-01-01',
+            sex='M',
+            height_m=1.75,
+            initial_weight_kg=70,
+            level='beginner',
+        )
+        self.state = get_or_create_progression_state(self.client_obj)
+
+    def test_tick_two_days_elapsed_remaining_becomes_one(self):
+        """cooldown_days_remaining=3, last_tick=2026-02-01, today=2026-02-03 => remaining=1."""
+        self.state.cooldown_days_remaining = 3
+        self.state.cooldown_last_tick_date = date(2026, 2, 1)
+        self.state.intensity_bias = -2
+        self.state.save()
+        tick_cooldown_by_day(self.state, date(2026, 2, 3))
+        self.state.refresh_from_db()
+        self.assertEqual(self.state.cooldown_days_remaining, 1)
+        self.assertEqual(self.state.cooldown_last_tick_date, date(2026, 2, 3))
+
+    def test_tick_remaining_never_below_zero(self):
+        """remaining=1, last_tick=2026-02-01, today=2026-02-05 => remaining=0 (not negative)."""
+        self.state.cooldown_days_remaining = 1
+        self.state.cooldown_last_tick_date = date(2026, 2, 1)
+        self.state.intensity_bias = -2
+        self.state.save()
+        tick_cooldown_by_day(self.state, date(2026, 2, 5))
+        self.state.refresh_from_db()
+        self.assertEqual(self.state.cooldown_days_remaining, 0)
+        self.assertEqual(self.state.intensity_bias, 0)
+
+    def test_tick_first_time_sets_last_tick_no_decrement(self):
+        """last_tick=None, remaining=3: first tick sets last_tick=today, remaining stays 3."""
+        self.state.cooldown_days_remaining = 3
+        self.state.cooldown_last_tick_date = None
+        self.state.save()
+        tick_cooldown_by_day(self.state, date(2026, 2, 1))
+        self.state.refresh_from_db()
+        self.assertEqual(self.state.cooldown_days_remaining, 3)
+        self.assertEqual(self.state.cooldown_last_tick_date, date(2026, 2, 1))
+
+    def test_tick_next_day_decrements_one(self):
+        """After first tick, next day decrements by 1."""
+        self.state.cooldown_days_remaining = 3
+        self.state.cooldown_last_tick_date = date(2026, 2, 1)
+        self.state.save()
+        tick_cooldown_by_day(self.state, date(2026, 2, 2))
+        self.state.refresh_from_db()
+        self.assertEqual(self.state.cooldown_days_remaining, 2)
+        self.assertEqual(self.state.cooldown_last_tick_date, date(2026, 2, 2))

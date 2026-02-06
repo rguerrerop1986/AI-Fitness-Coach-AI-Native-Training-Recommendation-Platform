@@ -15,7 +15,7 @@ from apps.recommendations.selectors import (
     get_recent_daily_recommendations,
     get_exercises_for_recommendation,
 )
-from apps.recommendations.services.progression import get_or_create_progression_state
+from apps.recommendations.services.progression import get_or_create_progression_state, tick_cooldown_by_day
 
 # Map client level (DB value) to catalog difficulty
 LEVEL_TO_DIFFICULTY = {
@@ -69,8 +69,9 @@ def generate_daily_recommendation(
     if existing:
         return existing
 
-    # V1.1: load progression state (closed-loop)
+    # V1.1: load progression state and tick cooldown by calendar day (GET/generate = one tick per day)
     state = get_or_create_progression_state(client)
+    tick_cooldown_by_day(state, for_date)
     base_intensity_by_level = {'beginner': 4, 'intermediate': 6, 'advanced': 8}
     level = (client.level or 'beginner').lower()
     difficulty = LEVEL_TO_DIFFICULTY.get(level, 'beginner')

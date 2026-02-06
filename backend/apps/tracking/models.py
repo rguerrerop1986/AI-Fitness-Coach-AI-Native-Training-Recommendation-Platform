@@ -531,6 +531,11 @@ class ClientProgressionState(models.Model):
         default=0,
         help_text='Days to force low intensity after injury_risk (e.g. 3)',
     )
+    cooldown_last_tick_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Last calendar date when cooldown was ticked (for day-based decrement)',
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

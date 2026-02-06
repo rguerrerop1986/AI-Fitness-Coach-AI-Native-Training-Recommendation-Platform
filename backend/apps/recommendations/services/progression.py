@@ -1,8 +1,10 @@
 """
 Closed-loop learning V1.1: evaluate post-workout outcome and apply progression updates.
 Heuristic-based (no ML). State persisted in ClientProgressionState.
+Cooldown after injury_risk is by calendar day (tick on GET/generate), not per session.
 """
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Optional
 
 from apps.tracking.models import TrainingLog, ClientProgressionState
@@ -45,13 +47,39 @@ def evaluate_outcome(log: TrainingLog) -> OutcomeResult:
     return OutcomeResult(outcome_score=0, flags=['neutral'])
 
 
+def tick_cooldown_by_day(state: ClientProgressionState, today_date: date) -> None:
+    """
+    Decrement cooldown by calendar days elapsed. Call on GET/generate daily recommendation.
+    If cooldown_days_remaining > 0: first tick sets cooldown_last_tick_date = today (no decrement);
+    subsequent days decrement by days_elapsed (min 0). Resets intensity_bias when cooldown reaches 0.
+    """
+    if state.cooldown_days_remaining <= 0:
+        return
+    update_fields = ['updated_at']
+    if state.cooldown_last_tick_date is None:
+        state.cooldown_last_tick_date = today_date
+        update_fields.extend(['cooldown_last_tick_date'])
+    else:
+        days_elapsed = (today_date - state.cooldown_last_tick_date).days
+        if days_elapsed > 0:
+            state.cooldown_days_remaining = max(0, state.cooldown_days_remaining - days_elapsed)
+            state.cooldown_last_tick_date = today_date
+            update_fields.extend(['cooldown_days_remaining', 'cooldown_last_tick_date'])
+            if state.cooldown_days_remaining == 0 and state.intensity_bias == -2:
+                state.intensity_bias = 0
+                update_fields.append('intensity_bias')
+    state.save(update_fields=update_fields)
+
+
 def apply_progression_update(
     state: ClientProgressionState,
     outcome: OutcomeResult,
+    log_date: Optional[date] = None,
 ) -> tuple[ClientProgressionState, dict[str, Any], str]:
     """
     Apply outcome to progression state. Returns (updated_state, delta, user_message).
     delta: intensity_bias_before, intensity_bias_after, outcome_score, flags.
+    Cooldown is NOT decremented here; it ticks by calendar day in generate_daily_recommendation.
     """
     delta: dict[str, Any] = {
         'outcome_score': outcome.outcome_score,
@@ -59,28 +87,25 @@ def apply_progression_update(
         'intensity_bias_before': state.intensity_bias,
         'current_load_score_before': state.current_load_score,
     }
-    bias_before = state.intensity_bias
 
     # Clamp load score -10..+10
     state.current_load_score = max(-10.0, min(10.0, state.current_load_score + outcome.outcome_score))
     delta['current_load_score_after'] = state.current_load_score
 
-    # Injury risk: force low intensity for 3 days
+    # Injury risk: force low intensity for 3 calendar days (tick on GET/generate)
     if 'injury_risk' in outcome.flags:
         state.intensity_bias = -2
         state.cooldown_days_remaining = 3
+        state.cooldown_last_tick_date = log_date  # next tick in generate_daily_recommendation
         state.high_days_streak = 0
-        state.save(update_fields=['current_load_score', 'intensity_bias', 'cooldown_days_remaining', 'high_days_streak', 'updated_at'])
+        state.save(update_fields=[
+            'current_load_score', 'intensity_bias', 'cooldown_days_remaining',
+            'cooldown_last_tick_date', 'high_days_streak', 'updated_at',
+        ])
         delta['intensity_bias_after'] = state.intensity_bias
         return state, delta, 'Dolor alto: mañana será recuperación / bajo impacto. Si persiste, consulta a tu médico.'
 
-    # Cooldown: decrement if not injury_risk this time
-    if state.cooldown_days_remaining > 0:
-        state.cooldown_days_remaining -= 1
-        if state.cooldown_days_remaining == 0 and state.intensity_bias == -2:
-            state.intensity_bias = 0  # reset after cooldown
-
-    # Adjust intensity_bias from load score (when not in cooldown)
+    # Adjust intensity_bias from load score (when not in cooldown; cooldown ticks by day in generate_daily_recommendation)
     if state.cooldown_days_remaining == 0:
         if state.current_load_score >= 3 and state.intensity_bias < 2:
             state.intensity_bias = min(2, state.intensity_bias + 1)
@@ -92,7 +117,7 @@ def apply_progression_update(
     if outcome.outcome_score < 0:
         state.high_days_streak = 0
 
-    state.save(update_fields=['current_load_score', 'intensity_bias', 'cooldown_days_remaining', 'high_days_streak', 'updated_at'])
+    state.save(update_fields=['current_load_score', 'intensity_bias', 'high_days_streak', 'updated_at'])
     delta['intensity_bias_after'] = state.intensity_bias
 
     # User-facing message

@@ -416,7 +416,7 @@ class ClientDailyExerciseCompleteView(APIView):
         )
         # Update meta with progression_after after we run progression
         outcome = evaluate_outcome(log)
-        state, delta, message = apply_progression_update(state, outcome)
+        state, delta, message = apply_progression_update(state, outcome, log_date=rec.date)
         log.recommendation_meta['progression_after'] = {
             'current_load_score': state.current_load_score,
             'intensity_bias': state.intensity_bias,
