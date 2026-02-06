@@ -27,7 +27,7 @@ echo "🔨 Building and starting services..."
 docker-compose up --build
 
 echo "✅ Application is starting up!"
-echo "📱 Frontend: http://localhost:5173"
+echo "📱 Frontend: http://localhost:5174"
 echo "🔧 Backend API: http://localhost:8000"
 echo "📚 API Documentation: http://localhost:8000/api/docs/"
 echo ""

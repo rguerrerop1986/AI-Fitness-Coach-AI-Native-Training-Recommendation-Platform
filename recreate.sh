@@ -20,7 +20,7 @@ docker-compose exec -T backend python manage.py showmigrations tracking || true
 
 echo ""
 echo "=== Listo. URLs ==="
-echo "  Frontend: http://localhost:5173"
+echo "  Frontend: http://localhost:5174"
 echo "  API:      http://localhost:8000/api/"
 echo ""
 echo "  Si no ves el formulario ESTRUCTURAL (Pliegues, Diámetros, etc.):"

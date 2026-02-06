@@ -150,11 +150,9 @@ SIMPLE_JWT = {
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
-    "http://192.168.0.187:5173",
+    "http://192.168.0.187:5174",
 ]
 
 # In development, allow any origin so other devices on LAN can connect

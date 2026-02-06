@@ -46,8 +46,8 @@ docker-compose up --build
 
 3. Access the applications:
 - Backend API: http://localhost:8000
-- Frontend (Coach Portal): http://localhost:5173
-- Client Portal: http://localhost:5173/client/login
+- Frontend (Coach Portal): http://localhost:5174
+- Client Portal: http://localhost:5174/client/login
 - API Documentation: http://localhost:8000/api/docs/
 
 ### Demo Credentials
@@ -538,12 +538,12 @@ pytest --cov=. --cov-report=html
    ```
 
 5. **Test client login**:
-   - Navigate to http://localhost:5173/client/login
+   - Navigate to http://localhost:5174/client/login
    - Use the credentials from step 4
    - Verify you can see only Raul's data
 
 6. **Test coach login**:
-   - Navigate to http://localhost:5173/login
+   - Navigate to http://localhost:5174/login
    - Use Sandy's credentials from step 2
    - Verify you can see all clients and manage them
 
