@@ -5,7 +5,7 @@ from .models import CheckIn, TrainingLog, DietLog
 # ---- Structural check-in: soft ranges (Spanish messages) ----
 STRUCTURAL_RANGES = {
     'weight_kg': (20, 300, 'Peso debe estar entre 20 y 300 kg'),
-    'height_m': (Decimal('1.00'), Decimal('2.50'), 'Estatura debe estar entre 1.00 y 2.50 m'),
+    'height_m': (Decimal('0.50'), Decimal('2.50'), 'Estatura debe estar entre 0.50 y 2.50 m'),
     'rc': (30, 220, 'Frecuencia cardíaca debe estar entre 30 y 220'),
     'skinfold_mm': (1, 80, 'Pliegues deben estar entre 1 y 80 mm'),
     'perimeter_cm': (10, 250, 'Perímetros deben estar entre 10 y 250 cm'),
@@ -248,7 +248,7 @@ class CheckInCreateSerializer(serializers.ModelSerializer):
                 if h <= 0:
                     errors['height_m'] = ['La estatura debe ser mayor que 0.']
                 else:
-                    self._soft_validate_range(h, 1.0, 2.5, STRUCTURAL_RANGES['height_m'][2])
+                    self._soft_validate_range(h, 0.5, 2.5, STRUCTURAL_RANGES['height_m'][2])
             except (TypeError, ValueError):
                 errors['height_m'] = ['Estatura inválida.']
         for field in ('rc_termino', 'rc_1min_bpm'):

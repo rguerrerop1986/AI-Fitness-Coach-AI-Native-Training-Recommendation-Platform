@@ -29,7 +29,7 @@ class ClientPortalModelsTest(TestCase):
             email='john@example.com',
             date_of_birth=date(1990, 1, 1),
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             consent_checkbox=True
         )
@@ -60,7 +60,7 @@ class ClientPortalAPITest(APITestCase):
             email='john@example.com',
             date_of_birth=date(1990, 1, 1),
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             consent_checkbox=True,
             user=self.client_user  # Link client to user
@@ -82,7 +82,7 @@ class ClientPortalAPITest(APITestCase):
             email='jane@example.com',
             date_of_birth=date(1992, 5, 15),
             sex='F',
-            height_cm=165.0,
+            height_m=1.65,
             initial_weight_kg=65.0,
             consent_checkbox=True,
             user=self.other_client_user

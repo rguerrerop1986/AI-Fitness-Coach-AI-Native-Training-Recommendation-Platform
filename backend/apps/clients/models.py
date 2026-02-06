@@ -8,22 +8,34 @@ User = get_user_model()
 
 class Client(models.Model):
     """Client model for storing client information."""
-    
+
     class Sex(models.TextChoices):
         MALE = 'M', 'Male'
         FEMALE = 'F', 'Female'
         OTHER = 'O', 'Other'
-    
+
+    class Level(models.TextChoices):
+        BEGINNER = 'beginner', 'Principiante'
+        INTERMEDIATE = 'intermediate', 'Intermedio'
+        ADVANCED = 'advanced', 'Avanzado'
+
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField()
     sex = models.CharField(max_length=1, choices=Sex.choices)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True)
-    height_cm = models.DecimalField(
-        max_digits=5, 
-        decimal_places=1,
-        validators=[MinValueValidator(100), MaxValueValidator(250)]
+    height_m = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        validators=[MinValueValidator(0.50), MaxValueValidator(2.50)],
+        help_text='Height in meters (e.g. 1.85)',
+    )
+    level = models.CharField(
+        max_length=12,
+        choices=Level.choices,
+        default=Level.BEGINNER,
+        help_text='Client level for AI routine suggestions',
     )
     initial_weight_kg = models.DecimalField(
         max_digits=5, 

@@ -95,7 +95,7 @@
         <h3>Client Information</h3>
         <p><strong>Name:</strong> {{ client.full_name }}</p>
         <p><strong>Email:</strong> {{ client.email }}</p>
-        <p><strong>Height:</strong> {{ client.height_cm }} cm</p>
+        <p><strong>Height:</strong> {{ client.height_m }} m</p>
         {% if latest_measurement %}
         <p><strong>Current Weight:</strong> {{ latest_measurement.weight_kg }} kg</p>
         <p><strong>Body Fat %:</strong> {{ latest_measurement.body_fat_pct|default:"Not measured" }}</p>

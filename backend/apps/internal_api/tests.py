@@ -23,7 +23,7 @@ class InternalAPITest(TestCase):
         self.client_obj = Client.objects.create(
             first_name='Cl', last_name='I',
             email='cli@test.com', date_of_birth='1990-01-01', sex='M',
-            height_cm=170, initial_weight_kg=70,
+            height_m=1.70, initial_weight_kg=70,
         )
         self.ex = Exercise.objects.create(name='Ex', muscle_group='core', instructions='x', intensity=5, tags=[])
 

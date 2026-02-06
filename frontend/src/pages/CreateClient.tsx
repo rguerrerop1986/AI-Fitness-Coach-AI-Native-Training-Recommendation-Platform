@@ -14,8 +14,9 @@ const createClientSchema = z.object({
   sex: z.enum(['M', 'F', 'O']),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(1, 'Phone number is required'),
-  height_cm: z.number().min(100, 'Height must be at least 100cm').max(250, 'Height must be less than 250cm'),
+  height_m: z.number().min(0.5, 'Height must be at least 0.50 m').max(2.5, 'Height must be at most 2.50 m'),
   initial_weight_kg: z.number().min(30, 'Weight must be at least 30kg').max(300, 'Weight must be less than 300kg'),
+  level: z.enum(['beginner', 'intermediate', 'advanced']),
   notes: z.string().optional(),
   consent_checkbox: z.boolean().refine(val => val === true, 'You must consent to data processing'),
   emergency_contact_name: z.string().min(1, 'Emergency contact name is required'),
@@ -45,6 +46,7 @@ export default function CreateClient() {
     defaultValues: {
       sex: 'M',
       consent_checkbox: false,
+      level: 'beginner',
     },
   });
 
@@ -63,8 +65,9 @@ export default function CreateClient() {
         sex: data.sex,
         email: data.email,
         phone: data.phone,
-        height_cm: data.height_cm,
+        height_m: data.height_m,
         initial_weight_kg: data.initial_weight_kg,
+        level: data.level,
         notes: data.notes || '',
         consent_checkbox: data.consent_checkbox,
         emergency_contact: emergencyContactString,
@@ -283,21 +286,39 @@ export default function CreateClient() {
                   
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="height_cm" className="block text-sm font-medium text-gray-700">
-                        {t('clients.height')} *
+                      <label htmlFor="height_m" className="block text-sm font-medium text-gray-700">
+                        {t('clients.height')} (m) *
                       </label>
                       <input
                         type="number"
-                        id="height_cm"
-                        {...register('height_cm', { valueAsNumber: true })}
+                        id="height_m"
+                        step="0.01"
+                        min="0.5"
+                        max="2.5"
+                        {...register('height_m', { valueAsNumber: true })}
                         className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="170"
+                        placeholder="1.85"
                       />
-                      {errors.height_cm && (
-                        <p className="mt-1 text-sm text-red-600">{errors.height_cm.message}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">Estatura en metros (ej. 1.85)</p>
+                      {errors.height_m && (
+                        <p className="mt-1 text-sm text-red-600">{errors.height_m.message}</p>
                       )}
                     </div>
 
+                    <div>
+                      <label htmlFor="level" className="block text-sm font-medium text-gray-700">
+                        {t('clients.level', 'Nivel del cliente')} *
+                      </label>
+                      <select
+                        id="level"
+                        {...register('level')}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      >
+                        <option value="beginner">{t('clients.levelBeginner', 'Principiante')}</option>
+                        <option value="intermediate">{t('clients.levelIntermediate', 'Intermedio')}</option>
+                        <option value="advanced">{t('clients.levelAdvanced', 'Avanzado')}</option>
+                      </select>
+                    </div>
                     <div>
                       <label htmlFor="initial_weight_kg" className="block text-sm font-medium text-gray-700">
                         {t('clients.initialWeight')} *

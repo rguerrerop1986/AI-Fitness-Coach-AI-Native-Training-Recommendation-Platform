@@ -12,8 +12,9 @@ interface Client {
   phone: string;
   date_of_birth: string;
   sex: string;
-  height_cm: number;
+  height_m: number;
   initial_weight_kg: number;
+  level?: string;
   notes: string;
   emergency_contact: string;
   created_at: string;
@@ -179,18 +180,18 @@ export default function ClientDetail() {
 
   const getMetricLabel = (metric: string) => {
     const labels: { [key: string]: string } = {
-      weight_kg: 'Weight (kg)',
-      body_fat_pct: 'Body Fat (%)',
-      chest_cm: 'Chest (cm)',
-      waist_cm: 'Waist (cm)',
-      hips_cm: 'Hips (cm)',
+      weight_kg: 'Peso (kg)',
+      body_fat_pct: 'Grasa Corporal (%)',
+      chest_cm: 'Pecho (cm)',
+      waist_cm: 'Cintura (cm)',
+      hips_cm: 'Caderas (cm)',
       bicep_cm: 'Bicep (cm)',
-      thigh_cm: 'Thigh (cm)',
-      calf_cm: 'Calf (cm)',
+      thigh_cm: 'Muslo (cm)',
+      calf_cm: 'Pantorrilla (cm)',
           rpe: 'RPE Rating',
-    fatigue: 'Fatigue Level',
-    diet_adherence: 'Diet Adherence (%)',
-    workout_adherence: 'Workout Adherence (%)',
+    fatigue: 'Nivel de fatiga',
+    diet_adherence: 'Adherencia a la dieta (%)',
+    workout_adherence: 'Adherencia al entrenamiento (%)',
     };
     return labels[metric] || metric;
   };
@@ -265,7 +266,7 @@ export default function ClientDetail() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-800">Client not found</div>
+            <div className="text-red-800">Cliente no encontrado</div>
           </div>
         </div>
       </div>
@@ -383,20 +384,20 @@ export default function ClientDetail() {
           <div className="lg:col-span-1">
             <div className="bg-white shadow-lg rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Client Information</h2>
+                <h2 className="text-lg font-medium text-gray-900">Información del cliente</h2>
               </div>
               <div className="px-6 py-4">
                 <dl className="space-y-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Full Name</dt>
+                    <dt className="text-sm font-medium text-gray-500">Nombre completo</dt>
                     <dd className="mt-1 text-sm text-gray-900">{client.first_name} {client.last_name}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Age</dt>
+                    <dt className="text-sm font-medium text-gray-500">Edad</dt>
                     <dd className="mt-1 text-sm text-gray-900">{getAge(client.date_of_birth)} years old</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Sex</dt>
+                    <dt className="text-sm font-medium text-gray-500">Sexo</dt>
                     <dd className="mt-1 text-sm text-gray-900">
                       {client.sex === 'M' ? 'Male' : client.sex === 'F' ? 'Female' : 'Other'}
                     </dd>
@@ -406,31 +407,41 @@ export default function ClientDetail() {
                     <dd className="mt-1 text-sm text-gray-900">{client.email}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                    <dt className="text-sm font-medium text-gray-500">Telefono</dt>
                     <dd className="mt-1 text-sm text-gray-900">{client.phone}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Height</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{client.height_cm} cm</dd>
+                    <dt className="text-sm font-medium text-gray-500">Estatura</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{client.height_m} m</dd>
                   </div>
+                  {client.level && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Nivel</dt>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        {client.level === 'Principiante' && 'Principiante'}
+                        {client.level === 'Intermedio' && 'Intermedio'}
+                        {client.level === 'Avanzado' && 'Avanzado'}
+                      </dd>
+                    </div>
+                  )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Initial Weight</dt>
+                    <dt className="text-sm font-medium text-gray-500">Peso inicial</dt>
                     <dd className="mt-1 text-sm text-gray-900">{client.initial_weight_kg} kg</dd>
                   </div>
                   {client.emergency_contact && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Emergency Contact</dt>
+                      <dt className="text-sm font-medium text-gray-500">Contacto de emergencia</dt>
                       <dd className="mt-1 text-sm text-gray-900">{client.emergency_contact}</dd>
                     </div>
                   )}
                   {client.notes && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Notes</dt>
+                      <dt className="text-sm font-medium text-gray-500">Notas adicionales</dt>
                       <dd className="mt-1 text-sm text-gray-900">{client.notes}</dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Portal Access</dt>
+                    <dt className="text-sm font-medium text-gray-500">Acceso al portal</dt>
                     <dd className="mt-1 text-sm">
                       {client.has_portal_access ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -461,17 +472,17 @@ export default function ClientDetail() {
             {/* Quick Stats */}
             <div className="mt-6 bg-white shadow-lg rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Quick Stats</h2>
+                <h2 className="text-lg font-medium text-gray-900">Estadísticos:</h2>
               </div>
               <div className="px-6 py-4">
                 <dl className="space-y-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Total Check-Ins</dt>
+                    <dt className="text-sm font-medium text-gray-500">Total de seguimientos</dt>
                     <dd className="mt-1 text-2xl font-semibold text-gray-900">{checkIns.length}</dd>
                   </div>
                   {latestCheckIn && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Latest Weight</dt>
+                      <dt className="text-sm font-medium text-gray-500">Último peso registrado</dt>
                       <dd className="mt-1 text-2xl font-semibold text-gray-900">
                         {latestCheckIn.weight_kg} kg
                       </dd>
@@ -479,7 +490,7 @@ export default function ClientDetail() {
                   )}
                   {weightTrend && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Weight Trend</dt>
+                      <dt className="text-sm font-medium text-gray-500">Tendencia del peso</dt>
                       <dd className="mt-1 text-sm">
                         {formatTrend(weightTrend)}
                       </dd>
@@ -496,23 +507,23 @@ export default function ClientDetail() {
             <div className="bg-white shadow-lg rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-gray-900">Progress Chart</h2>
+                  <h2 className="text-lg font-medium text-gray-900">Gráfico de progreso</h2>
                   <select
                     value={selectedMetric}
                     onChange={(e) => setSelectedMetric(e.target.value)}
                     className="block w-48 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   >
-                    <option value="weight_kg">Weight (kg)</option>
-                    <option value="body_fat_pct">Body Fat (%)</option>
-                    <option value="chest_cm">Chest (cm)</option>
-                    <option value="waist_cm">Waist (cm)</option>
-                    <option value="hips_cm">Hips (cm)</option>
+                    <option value="weight_kg">Peso (kg)</option>
+                    <option value="body_fat_pct">Grasa Corporal (%) (%)</option>
+                    <option value="chest_cm">Pecho (cm)</option>
+                    <option value="waist_cm">Cintura (cm)</option>
+                    <option value="hips_cm">Caderas (cm)</option>
                     <option value="bicep_cm">Bicep (cm)</option>
-                    <option value="thigh_cm">Thigh (cm)</option>
-                    <option value="calf_cm">Calf (cm)</option>
+                    <option value="thigh_cm">Muslo (cm)</option>
+                    <option value="calf_cm">Pantorrilla (cm)</option>
                                          <option value="rpe">RPE Rating</option>
-                     <option value="fatigue">Fatigue Level</option>
-                     <option value="diet_adherence">Diet Adherence (%)</option>
+                     <option value="fatigue">Nivel de fatiga</option>
+                     <option value="diet_adherence">Adherencia a la dieta (%)</option>
                      <option value="workout_adherence">Workout Adherence (%)</option>
                   </select>
                 </div>
@@ -542,9 +553,9 @@ export default function ClientDetail() {
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No data to display</h3>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No hay datos para mostrar</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Create a check-in to see progress charts.
+                      Crear un seguimiento para ver el gráfico de progreso.
                     </p>
                   </div>
                 )}
@@ -555,9 +566,9 @@ export default function ClientDetail() {
             <div className="bg-white shadow-lg rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-gray-900">Check-Ins History</h2>
+                  <h2 className="text-lg font-medium text-gray-900">Seguimientos registrados:</h2>
                   <span className="text-sm text-gray-500">
-                    {checkIns.length} check-in{checkIns.length !== 1 ? 's' : ''}
+                    {checkIns.length} seguimiento{checkIns.length !== 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
@@ -567,9 +578,9 @@ export default function ClientDetail() {
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No check-ins yet</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No hay seguimientos registrados</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Start tracking progress by creating the first check-in.
+                    Comienza a registrar seguimientos para ver el progreso del cliente.
                   </p>
                   <div className="mt-6">
                     {client.is_active !== false ? (
@@ -577,7 +588,7 @@ export default function ClientDetail() {
                         onClick={() => navigate(`/clients/${id}/check-in`)}
                         className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
-                        Create First Check-In
+                        Comenzar a registrar seguimientos
                       </button>
                     ) : (
                       <p className="text-sm text-amber-700">Cliente inactivo. Reactívalo para crear seguimientos.</p>
@@ -590,19 +601,19 @@ export default function ClientDetail() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
+                          Fecha
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Weight
+                          Peso
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Body Fat
+                          Grasa Corporal
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Adherence
+                          Adherencia
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Notes
+                          Notas
                         </th>
                       </tr>
                     </thead>

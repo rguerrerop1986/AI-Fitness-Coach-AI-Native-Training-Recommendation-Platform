@@ -15,7 +15,7 @@ class ClientAdmin(admin.ModelAdmin):
             'fields': ('first_name', 'last_name', 'date_of_birth', 'sex', 'email', 'phone')
         }),
         ('Physical Information', {
-            'fields': ('height_cm', 'initial_weight_kg')
+            'fields': ('height_m', 'initial_weight_kg', 'level')
         }),
         ('Additional Information', {
             'fields': ('notes', 'consent_checkbox', 'emergency_contact')

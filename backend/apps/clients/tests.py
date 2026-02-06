@@ -32,7 +32,7 @@ class ClientCreateWithPortalUserTest(TestCase):
             'sex': 'M',
             'email': 'raul.client@test.com',
             'phone': '+52123456789',
-            'height_cm': 175,
+            'height_m': 1.75,
             'initial_weight_kg': 80,
             'notes': '',
             'consent_checkbox': True,
@@ -59,7 +59,7 @@ class ClientCreateWithPortalUserTest(TestCase):
             'sex': 'F',
             'email': 'nopass@test.com',
             'phone': '+52111111111',
-            'height_cm': 165,
+            'height_m': 1.65,
             'initial_weight_kg': 60,
             'notes': '',
             'consent_checkbox': True,
@@ -69,6 +69,58 @@ class ClientCreateWithPortalUserTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json() or {}
         self.assertTrue('password' in data or 'detail' in data, 'Expected password error in response')
+
+    def test_create_client_height_m_in_meters(self):
+        """Height must be in meters (0.50-2.50). Reject cm (e.g. 185)."""
+        self.api.force_authenticate(user=self.coach)
+        # Valid: 1.85 m
+        payload = {
+            'first_name': 'Valid',
+            'last_name': 'Height',
+            'date_of_birth': '1990-01-01',
+            'sex': 'M',
+            'email': 'valid.height@test.com',
+            'phone': '+52123456789',
+            'height_m': 1.85,
+            'initial_weight_kg': 80,
+            'notes': '',
+            'consent_checkbox': True,
+            'emergency_contact': 'Jane',
+            'password': 'securepass123',
+        }
+        response = self.api.post('/api/clients/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        client = Client.objects.get(email='valid.height@test.com')
+        self.assertEqual(float(client.height_m), 1.85)
+
+        # Invalid: 185 (cm) rejected
+        payload['email'] = 'invalid.height@test.com'
+        payload['height_m'] = 185
+        response = self.api.post('/api/clients/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('height_m', response.json())
+
+    def test_create_client_level_saved(self):
+        """Client level (beginner/intermediate/advanced) is saved."""
+        self.api.force_authenticate(user=self.coach)
+        payload = {
+            'first_name': 'Level',
+            'last_name': 'User',
+            'date_of_birth': '1990-01-01',
+            'sex': 'M',
+            'email': 'level.user@test.com',
+            'phone': '+52123456789',
+            'height_m': 1.75,
+            'initial_weight_kg': 70,
+            'level': 'intermediate',
+            'notes': '',
+            'consent_checkbox': True,
+            'emergency_contact': 'Jane',
+            'password': 'securepass123',
+        }
+        response = self.api.post('/api/clients/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data.get('level'), 'intermediate')
 
 
 class ClientSetPasswordTest(TestCase):
@@ -90,7 +142,7 @@ class ClientSetPasswordTest(TestCase):
             email='existing@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175,
+            height_m=1.75,
             initial_weight_kg=80,
             consent_checkbox=True,
         )
@@ -164,7 +216,7 @@ class ClientDeactivateTest(TestCase):
             email='deact@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175,
+            height_m=1.75,
             initial_weight_kg=80,
             consent_checkbox=True,
         )
@@ -277,7 +329,7 @@ class BlockCreateCheckInPlanForInactiveClientTest(TestCase):
             email='inact@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175,
+            height_m=1.75,
             initial_weight_kg=80,
             consent_checkbox=True,
             is_active=False,
@@ -353,7 +405,7 @@ class ClientListDefaultActiveTest(TestCase):
             email='active@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175,
+            height_m=1.75,
             initial_weight_kg=80,
             consent_checkbox=True,
             is_active=True,
@@ -364,7 +416,7 @@ class ClientListDefaultActiveTest(TestCase):
             email='inactive@test.com',
             date_of_birth='1990-01-01',
             sex='F',
-            height_cm=165,
+            height_m=1.65,
             initial_weight_kg=60,
             consent_checkbox=True,
             is_active=False,

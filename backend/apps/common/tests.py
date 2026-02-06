@@ -41,7 +41,7 @@ class PermissionsTestCase(TestCase):
             email='client@test.com',
             date_of_birth=date(1990, 1, 1),
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             user=self.client_user
         )

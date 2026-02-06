@@ -127,9 +127,11 @@ export default function Appointments() {
     }
   };
 
+  // API returns scheduled_at in UTC (ISO with Z). Display in business TZ (America/Mexico_City).
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
+    return date.toLocaleString('es-MX', {
+      timeZone: 'America/Mexico_City',
       year: 'numeric',
       month: 'short',
       day: 'numeric',

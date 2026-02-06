@@ -1,13 +1,15 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
+import zoneinfo
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.clients.models import Client
 from .models import Appointment
 
 User = get_user_model()
+MEXICO_TZ = zoneinfo.ZoneInfo('America/Mexico_City')
 
 
 class AppointmentModelTest(TestCase):
@@ -37,7 +39,7 @@ class AppointmentModelTest(TestCase):
             email='raul@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             user=self.client_user
         )
@@ -123,7 +125,7 @@ class AppointmentAPITest(TestCase):
             email='raul@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             user=self.client_user
         )
@@ -143,7 +145,7 @@ class AppointmentAPITest(TestCase):
             email='other@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             user=self.other_client_user
         )
@@ -165,6 +167,31 @@ class AppointmentAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Appointment.objects.count(), 1)
         self.assertEqual(response.data['coach'], self.coach.id)
+
+    def test_appointment_scheduled_at_timezone_mexico_city(self):
+        """Naive datetime "2026-02-05T08:00:00" is interpreted as Mexico City 08:00 and stored as UTC."""
+        self.client.force_authenticate(user=self.coach)
+        # February 2026: Mexico City is UTC-6. 08:00 local = 14:00 UTC.
+        data = {
+            'client': self.client_obj.id,
+            'scheduled_at': '2026-02-05T08:00:00',
+            'duration_minutes': 60,
+            'price': 500.00,
+            'currency': 'MXN',
+        }
+        response = self.client.post('/api/appointments/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        apt = Appointment.objects.get(id=response.data['id'])
+        # Stored in DB as UTC
+        utc_stored = apt.scheduled_at
+        self.assertIsNotNone(utc_stored.tzinfo)
+        # 08:00 Mexico City = 14:00 UTC
+        self.assertEqual(utc_stored.hour, 14)
+        self.assertEqual(utc_stored.day, 5)
+        # When serialized back, API returns ISO with Z; in Mexico TZ it should display as 08:00
+        local_mexico = utc_stored.astimezone(MEXICO_TZ)
+        self.assertEqual(local_mexico.hour, 8)
+        self.assertEqual(local_mexico.minute, 0)
     
     def test_client_sees_only_own_appointments(self):
         """Test that client can only see their own appointments."""

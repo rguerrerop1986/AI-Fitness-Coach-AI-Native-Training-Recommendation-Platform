@@ -97,7 +97,7 @@ def generate_plan_pdf(plan_cycle):
 
     client_name = client.full_name
     client_age = getattr(client, "age", None)
-    height_cm = client.height_cm
+    height_m = client.height_m
 
     # Latest measurement (if any)
     latest_measurement = client.measurements.order_by("-date").first()
@@ -146,7 +146,7 @@ def generate_plan_pdf(plan_cycle):
 
     client_plan_data.extend(
         [
-            [p("Altura:", "CustomSubHeading"), p(f"{height_cm} cm")],
+            [p("Altura:", "CustomSubHeading"), p(f"{height_m} m")],
             [p("Peso actual:", "CustomSubHeading"), p(weight_text)],
             [p("Medidas:", "CustomSubHeading"), p(measurements_text)],
             [p("Coach:", "CustomSubHeading"), p(coach_name)],

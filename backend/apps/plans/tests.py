@@ -42,7 +42,7 @@ class PlanCycleAPITest(TestCase):
             email='raul@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
             user=self.client_user
         )
@@ -165,7 +165,7 @@ class PlanCycleAPITest(TestCase):
             email='other@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=175.0,
+            height_m=1.75,
             initial_weight_kg=80.0,
         )
         

@@ -90,7 +90,7 @@ class TrainingLogDietLogTestBase(TestCase):
             email='a@test.com',
             date_of_birth='1990-01-01',
             sex='M',
-            height_cm=170,
+            height_m=1.70,
             initial_weight_kg=70,
             user=self.client_user_a,
         )
@@ -100,7 +100,7 @@ class TrainingLogDietLogTestBase(TestCase):
             email='b@test.com',
             date_of_birth='1992-01-01',
             sex='F',
-            height_cm=165,
+            height_m=1.65,
             initial_weight_kg=60,
             user=self.client_user_b,
         )

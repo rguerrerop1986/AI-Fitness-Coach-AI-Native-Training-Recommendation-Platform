@@ -30,8 +30,8 @@ class ClientSerializer(serializers.ModelSerializer):
         model = Client
         fields = [
             'id', 'first_name', 'last_name', 'full_name', 'date_of_birth',
-            'age', 'sex', 'email', 'phone', 'height_cm', 'initial_weight_kg',
-            'notes', 'consent_checkbox', 'emergency_contact', 'is_active',
+            'age', 'sex', 'email', 'phone', 'height_m', 'initial_weight_kg',
+            'level', 'notes', 'consent_checkbox', 'emergency_contact', 'is_active',
             'deactivated_at', 'deactivated_by', 'deactivation_reason',
             'has_portal_access', 'portal_username',
             'measurements', 'created_at', 'updated_at',
@@ -53,9 +53,23 @@ class ClientCreateSerializer(serializers.ModelSerializer):
         model = Client
         fields = [
             'first_name', 'last_name', 'date_of_birth', 'sex', 'email',
-            'phone', 'height_cm', 'initial_weight_kg', 'notes',
+            'phone', 'height_m', 'initial_weight_kg', 'level', 'notes',
             'consent_checkbox', 'emergency_contact', 'password',
         ]
+
+    def validate_height_m(self, value):
+        if value is None:
+            raise serializers.ValidationError('Height (m) is required.')
+        val = float(value)
+        if val > 10:
+            raise serializers.ValidationError(
+                'Use height in meters (e.g. 1.85), not centimeters.'
+            )
+        if val < 0.50 or val > 2.50:
+            raise serializers.ValidationError(
+                'Height must be between 0.50 and 2.50 m.'
+            )
+        return value
 
     def validate_consent_checkbox(self, value):
         if not value:

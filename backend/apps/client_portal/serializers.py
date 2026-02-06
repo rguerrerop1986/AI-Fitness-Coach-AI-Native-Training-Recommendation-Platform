@@ -13,7 +13,7 @@ class ClientDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = [
-            'id', 'first_name', 'last_name', 'email', 'height_cm',
+            'id', 'first_name', 'last_name', 'email', 'height_m',
             'initial_weight_kg', 'latest_measurement', 'active_diet_plan',
             'active_workout_plan'
         ]

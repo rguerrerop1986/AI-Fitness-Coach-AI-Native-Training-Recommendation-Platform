@@ -1,7 +1,31 @@
+from datetime import datetime
+import zoneinfo
 from rest_framework import serializers
+from django.utils.dateparse import parse_datetime
+from django.utils import timezone as django_tz
 from .models import Appointment
-from apps.clients.models import Client
 from apps.clients.serializers import ClientSerializer
+
+# Business timezone: all appointment times are in Mexico City
+APPOINTMENT_TZ = zoneinfo.ZoneInfo('America/Mexico_City')
+
+
+def parse_scheduled_at_as_local(value):
+    """
+    Parse scheduled_at from API. If the string has no timezone (naive),
+    interpret as America/Mexico_City and return aware UTC for storage.
+    """
+    if value is None:
+        return value
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = parse_datetime(str(value))
+    if dt is None:
+        return value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=APPOINTMENT_TZ)
+    return dt.astimezone(django_tz.utc)
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -19,6 +43,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['coach', 'created_at', 'updated_at']
     
+    def to_internal_value(self, data):
+        internal = super().to_internal_value(data)
+        if 'scheduled_at' in internal and internal['scheduled_at'] is not None:
+            internal['scheduled_at'] = parse_scheduled_at_as_local(internal['scheduled_at'])
+        return internal
+
     def validate(self, attrs):
         payment_status = attrs.get(
             'payment_status',
