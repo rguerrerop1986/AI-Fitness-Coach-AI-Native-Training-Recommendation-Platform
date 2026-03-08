@@ -24,6 +24,6 @@ class WorkoutLogAdmin(admin.ModelAdmin):
 
 @admin.register(TrainingRecommendation)
 class TrainingRecommendationAdmin(admin.ModelAdmin):
-    list_display = ["user", "date", "recommended_video", "recommendation_type", "created_at"]
+    list_display = ["user", "date", "recommended_exercise", "recommended_video", "recommendation_type", "created_at"]
     list_filter = ["date", "recommendation_type"]
-    raw_id_fields = ["user", "recommended_video"]
+    raw_id_fields = ["user", "recommended_exercise", "recommended_video"]

@@ -1,6 +1,11 @@
 """
 Select safe candidate videos based on readiness result and check-in.
 Returns 3-5 candidates for the LLM to choose from.
+
+NOTE: The recommendation flow uses apps.training.services.exercise_selector (Exercise from
+catalogs) as the source of truth, not this module. This module is kept for backward
+compatibility or non-recommendation use only. Do not use get_candidate_videos for
+POST /api/training/recommendations/generate/.
 """
 from typing import List, Optional
 

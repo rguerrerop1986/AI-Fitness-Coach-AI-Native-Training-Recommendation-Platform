@@ -1,3 +1,4 @@
+# On macOS, install system deps for pycairo (used by reportlab/xhtml2pdf): brew install pkg-config cairo
 Django==4.2.27
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.4.0
@@ -18,6 +19,6 @@ Pillow==10.1.0
 celery==5.3.4
 redis==5.0.1
 setuptools>=65.5.1
-reportlab==3.6.13
-xhtml2pdf==0.2.11
+reportlab>=4.0.0,<5
+xhtml2pdf>=0.2.16
 openai>=1.0.0

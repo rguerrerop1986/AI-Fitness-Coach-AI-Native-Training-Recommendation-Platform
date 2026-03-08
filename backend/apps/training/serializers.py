@@ -238,11 +238,23 @@ class GenerateRecommendationInputSerializer(serializers.Serializer):
     date = serializers.DateField(required=True)
 
 
+class RecommendedExerciseSerializer(serializers.Serializer):
+    """Nested shape for recommended_exercise in recommendation response."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    muscle_group = serializers.CharField()
+    difficulty = serializers.CharField()
+    intensity = serializers.IntegerField()
+    tags = serializers.ListField(child=serializers.CharField(), allow_empty=True)
+
+
 class RecommendationResponseSerializer(serializers.Serializer):
-    """Output shape for recommendation generate endpoint."""
+    """Output shape for recommendation generate endpoint. recommended_exercise is primary; recommended_video deprecated."""
 
     date = serializers.CharField()
-    recommended_video = serializers.DictField(allow_null=True)
+    recommended_exercise = RecommendedExerciseSerializer(allow_null=True)
+    recommended_video = serializers.DictField(allow_null=True, required=False)
     recommendation_type = serializers.CharField()
     reasoning_summary = serializers.CharField()
     warnings = serializers.CharField()

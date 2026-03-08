@@ -209,6 +209,13 @@ class TrainingRecommendation(models.Model):
         blank=True,
         related_name='recommendations',
     )
+    recommended_exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='training_recommendations',
+    )
     recommendation_type = models.CharField(
         max_length=20,
         choices=RecommendationType.choices,
