@@ -20,3 +20,4 @@ redis==5.0.1
 setuptools>=65.5.1
 reportlab==3.6.13
 xhtml2pdf==0.2.11
+openai>=1.0.0

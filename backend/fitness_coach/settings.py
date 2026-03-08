@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'apps.plans',
     'apps.tracking',
     'apps.recommendations',
+    'apps.training',
     'apps.internal_api',
     'apps.client_portal',
     'apps.appointments',
@@ -198,6 +199,11 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
 }
+
+# OpenAI (training recommendations & feedback analysis)
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o-mini')
+OPENAI_TEMPERATURE = config('OPENAI_TEMPERATURE', default=0.3, cast=float)
 
 # Logging
 LOGGING = {
