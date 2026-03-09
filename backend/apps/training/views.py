@@ -72,7 +72,7 @@ class DailyCheckInListCreateView(ListCreateAPIView):
 
 
 class GenerateRecommendationView(APIView):
-    """POST /api/training/recommendations/generate/ - body: { "date": "YYYY-MM-DD" }."""
+    """POST /api/training/recommendations/generate/ - body: { "date": "YYYY-MM-DD" }. Returns recommendation_plan and persisted_recommendation_id."""
 
     permission_classes = [IsAuthenticated]
 

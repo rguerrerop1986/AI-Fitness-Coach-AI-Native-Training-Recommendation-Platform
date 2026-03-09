@@ -22,3 +22,6 @@ setuptools>=65.5.1
 reportlab>=4.0.0,<5
 xhtml2pdf>=0.2.16
 openai>=1.0.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langgraph>=0.2.0

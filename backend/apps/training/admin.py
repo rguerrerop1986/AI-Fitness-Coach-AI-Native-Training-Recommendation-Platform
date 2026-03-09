@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TrainingVideo, DailyCheckIn, WorkoutLog, TrainingRecommendation
+from .models import TrainingVideo, DailyCheckIn, WorkoutLog, TrainingRecommendation, TrainingRecommendationExercise
 
 
 @admin.register(TrainingVideo)
@@ -24,6 +24,12 @@ class WorkoutLogAdmin(admin.ModelAdmin):
 
 @admin.register(TrainingRecommendation)
 class TrainingRecommendationAdmin(admin.ModelAdmin):
-    list_display = ["user", "date", "recommended_exercise", "recommended_video", "recommendation_type", "created_at"]
+    list_display = ["user", "date", "recommended_exercise", "recommended_video", "recommendation_type", "readiness_score", "created_at"]
     list_filter = ["date", "recommendation_type"]
     raw_id_fields = ["user", "recommended_exercise", "recommended_video"]
+
+
+@admin.register(TrainingRecommendationExercise)
+class TrainingRecommendationExerciseAdmin(admin.ModelAdmin):
+    list_display = ["recommendation", "exercise", "sets", "reps", "rest_seconds", "position"]
+    raw_id_fields = ["recommendation", "exercise"]

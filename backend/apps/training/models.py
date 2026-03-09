@@ -195,6 +195,12 @@ class TrainingRecommendation(models.Model):
         MODERATE = 'moderate', 'Moderate'
         INTENSE = 'intense', 'Intense'
         MAX = 'max', 'Max'
+        MOBILITY = 'mobility', 'Mobility'
+        UPPER_STRENGTH = 'upper_strength', 'Upper Strength'
+        LOWER_STRENGTH = 'lower_strength', 'Lower Strength'
+        CARDIO = 'cardio', 'Cardio'
+        FULL_BODY = 'full_body', 'Full Body'
+        REST_DAY = 'rest_day', 'Rest Day'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -217,13 +223,15 @@ class TrainingRecommendation(models.Model):
         related_name='training_recommendations',
     )
     recommendation_type = models.CharField(
-        max_length=20,
+        max_length=24,
         choices=RecommendationType.choices,
         default=RecommendationType.MODERATE,
     )
     reasoning_summary = models.TextField(blank=True)
     warnings = models.TextField(blank=True)
     coach_message = models.TextField(blank=True)
+    readiness_score = models.FloatField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
     rule_based_payload = models.JSONField(default=dict, blank=True)
     llm_payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -241,3 +249,30 @@ class TrainingRecommendation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} - {self.date} ({self.get_recommendation_type_display()})"
+
+
+class TrainingRecommendationExercise(models.Model):
+    """One exercise within a training recommendation (sets, reps, rest)."""
+
+    recommendation = models.ForeignKey(
+        TrainingRecommendation,
+        on_delete=models.CASCADE,
+        related_name='recommended_exercises',
+    )
+    exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.CASCADE,
+        related_name='recommendation_line_items',
+    )
+    sets = models.PositiveSmallIntegerField(default=0)
+    reps = models.PositiveSmallIntegerField(default=0)
+    rest_seconds = models.PositiveSmallIntegerField(default=0)
+    notes = models.TextField(blank=True)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'training_recommendation_exercises'
+        ordering = ['recommendation', 'position']
+
+    def __str__(self) -> str:
+        return f"{self.recommendation} - {self.exercise.name} ({self.sets}x{self.reps})"

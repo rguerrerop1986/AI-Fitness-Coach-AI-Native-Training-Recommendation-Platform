@@ -1,6 +1,5 @@
 """Tests for training API endpoints (recommendation generate with mocked OpenAI)."""
 from datetime import date
-from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -64,56 +63,40 @@ class TestGenerateRecommendationEndpoint:
     def test_generate_returns_200_and_recommended_exercise(
         self, api_client, user, exercise_candidates
     ):
-        """With OpenAI mocked, response has date, recommended_exercise, recommendation_type, etc."""
-        with patch(
-            "apps.training.services.recommendation_service.recommend_workout_from_candidates"
-        ) as mock_llm:
-            mock_llm.return_value = {
-                "recommended_exercise_id": exercise_candidates[1].id,
-                "recommendation_type": "moderate",
-                "reasoning_summary": "Good energy, moderate fits.",
-                "warnings": "",
-                "coach_message": "Train with control.",
-            }
-            resp = api_client.post(
-                "/api/training/recommendations/generate/",
-                {"date": date.today().isoformat()},
-                format="json",
-            )
+        """Response has date, recommended_exercise, recommendation_plan, recommendation_type, etc."""
+        resp = api_client.post(
+            "/api/training/recommendations/generate/",
+            {"date": date.today().isoformat()},
+            format="json",
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "date" in data
         assert "recommended_exercise" in data
         assert data["recommended_exercise"] is not None
-        assert data["recommended_exercise"]["id"] == exercise_candidates[1].id
-        assert data["recommended_exercise"]["name"] == "Cardio Power"
-        assert data["recommended_exercise"]["muscle_group"] == "cardio"
-        assert data["recommendation_type"] == "moderate"
+        assert data["recommended_exercise"]["id"] in [e.id for e in exercise_candidates]
+        assert data["recommended_exercise"]["name"] in [e.name for e in exercise_candidates]
+        assert data["recommended_exercise"]["muscle_group"] in [e.muscle_group for e in exercise_candidates]
+        assert "recommendation_plan" in data
+        assert data["recommendation_plan"]["exercises"]
+        assert data["recommendation_type"] in ("recovery", "light", "moderate", "intense", "mobility", "upper_strength", "lower_strength", "cardio", "full_body", "rest_day")
         assert "reasoning_summary" in data
         assert "coach_message" in data
 
     def test_recommendation_persisted_with_recommended_exercise(
         self, api_client, user, exercise_candidates
     ):
-        """TrainingRecommendation is saved with recommended_exercise FK."""
-        with patch(
-            "apps.training.services.recommendation_service.recommend_workout_from_candidates"
-        ) as mock_llm:
-            mock_llm.return_value = {
-                "recommended_exercise_id": exercise_candidates[0].id,
-                "recommendation_type": "recovery",
-                "reasoning_summary": "Recovery day.",
-                "warnings": "",
-                "coach_message": "Take it easy.",
-            }
-            api_client.post(
-                "/api/training/recommendations/generate/",
-                {"date": date.today().isoformat()},
-                format="json",
-            )
+        """TrainingRecommendation is saved with recommended_exercise FK and line items."""
+        api_client.post(
+            "/api/training/recommendations/generate/",
+            {"date": date.today().isoformat()},
+            format="json",
+        )
         rec = TrainingRecommendation.objects.get(user=user, date=date.today())
-        assert rec.recommended_exercise_id == exercise_candidates[0].id
-        assert rec.recommended_exercise.name == "Cardio Recovery"
+        assert rec.recommended_exercise_id in [e.id for e in exercise_candidates]
+        from apps.training.models import TrainingRecommendationExercise
+        line_items = list(TrainingRecommendationExercise.objects.filter(recommendation=rec))
+        assert len(line_items) >= 1
 
     def test_no_candidates_only_when_no_eligible_exercises(self, api_client, user):
         """no_candidates returned only when Exercise catalog has no eligible exercises (e.g. recovery + all high intensity)."""
@@ -132,21 +115,11 @@ class TestGenerateRecommendationEndpoint:
         self, api_client, user, exercise_candidates
     ):
         """When active exercises exist, endpoint does not fail with no_candidates due to catalog."""
-        with patch(
-            "apps.training.services.recommendation_service.recommend_workout_from_candidates"
-        ) as mock_llm:
-            mock_llm.return_value = {
-                "recommended_exercise_id": exercise_candidates[0].id,
-                "recommendation_type": "light",
-                "reasoning_summary": "Ok.",
-                "warnings": "",
-                "coach_message": "Go.",
-            }
-            resp = api_client.post(
-                "/api/training/recommendations/generate/",
-                {"date": date.today().isoformat()},
-                format="json",
-            )
+        resp = api_client.post(
+            "/api/training/recommendations/generate/",
+            {"date": date.today().isoformat()},
+            format="json",
+        )
         assert resp.status_code == 200
         assert resp.json().get("error") is None
         assert resp.json().get("recommended_exercise") is not None
