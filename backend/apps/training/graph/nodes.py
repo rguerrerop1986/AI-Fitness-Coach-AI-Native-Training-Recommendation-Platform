@@ -52,12 +52,23 @@ def _serialize_workout(log: WorkoutLog) -> dict:
 
 
 def _serialize_recommendation(rec: TrainingRecommendation) -> dict:
+    """Serialize a recommendation; include muscle_group from TrainingRecommendationExercise line items when available."""
     ex = rec.recommended_exercise
+    exercise_muscle_groups: list[str] = []
+    # Use line items (TrainingRecommendationExercise + Exercise) for actual muscle groups when available
+    if hasattr(rec, "recommended_exercises"):
+        for tre in rec.recommended_exercises.all():
+            if getattr(tre, "exercise", None) and getattr(tre.exercise, "muscle_group", None):
+                exercise_muscle_groups.append(tre.exercise.muscle_group)
+    # Fallback: single recommended_exercise FK (legacy)
+    if not exercise_muscle_groups and ex and getattr(ex, "muscle_group", None):
+        exercise_muscle_groups.append(ex.muscle_group)
     return {
         "date": rec.date.isoformat(),
         "recommendation_type": rec.recommendation_type,
         "recommended_exercise_id": ex.id if ex else None,
         "recommended_exercise_name": ex.name if ex else None,
+        "exercise_muscle_groups": exercise_muscle_groups,
     }
 
 
@@ -91,6 +102,7 @@ def load_user_context(state: RecommendationState) -> RecommendationState:
     check_in = get_checkin_for_date(user, for_date)
     recent_logs_qs: QuerySet[WorkoutLog] = get_recent_workout_logs(user, days=14, before_date=for_date)
     recent_recs_qs = get_recent_recommendations(user, days=14, before_date=for_date)
+    recent_recs_qs = recent_recs_qs.prefetch_related("recommended_exercises__exercise")
 
     recent_workouts = [_serialize_workout(log) for log in list(recent_logs_qs)]
     previous_recommendations = [_serialize_recommendation(r) for r in list(recent_recs_qs)]
@@ -173,27 +185,56 @@ def analyze_readiness(state: RecommendationState) -> RecommendationState:
     }
 
 
+# Muscle groups that count as "upper" / "lower" / "cardio" for routing
+_UPPER_BODY_GROUPS = {"chest", "back", "shoulders", "biceps", "triceps", "forearms"}
+_LOWER_BODY_GROUPS = {"quads", "hamstrings", "glutes", "calves"}
+_CARDIO_GROUPS = {"cardio", "full_body"}
+
+
+def _recent_load_from_previous_recommendations(prev: list) -> tuple[set[str], set[str], set[str]]:
+    """
+    Infer recent muscle-group load from previous recommendations.
+    Uses exercise_muscle_groups from TrainingRecommendationExercise + Exercise when available;
+    falls back to recommendation_type string heuristics.
+    Returns (recent_upper, recent_lower, recent_cardio) as sets of abstract keys for routing.
+    """
+    recent_upper: set[str] = set()
+    recent_lower: set[str] = set()
+    recent_cardio: set[str] = set()
+    for r in prev[:3]:  # last 3 recommendations
+        muscle_groups = r.get("exercise_muscle_groups") or []
+        if muscle_groups:
+            for mg in muscle_groups:
+                mg_lower = (mg or "").lower().strip()
+                if mg_lower in _UPPER_BODY_GROUPS:
+                    recent_upper.add("upper")
+                if mg_lower in _LOWER_BODY_GROUPS:
+                    recent_lower.add("lower")
+                if mg_lower in _CARDIO_GROUPS:
+                    recent_cardio.add("cardio")
+        else:
+            # Fallback: infer from recommendation_type string
+            rt = (r.get("recommendation_type") or "").lower()
+            if "upper" in rt or "strength" in rt:
+                recent_upper.add("upper")
+            if "lower" in rt:
+                recent_lower.add("lower")
+            if "cardio" in rt:
+                recent_cardio.add("cardio")
+    return (recent_upper, recent_lower, recent_cardio)
+
+
 def route_recommendation_type(state: RecommendationState) -> RecommendationState:
     """
     Set recommendation_type: recovery, mobility, upper_strength, lower_strength,
-    cardio, full_body, or rest_day based on readiness_score, pain flags, and recent workouts.
+    cardio, full_body, or rest_day based on readiness_score, pain flags, and
+    actual historical muscle-group load from TrainingRecommendationExercise + Exercise when available.
     """
     score = state.get("readiness_score", 0.5)
     flags = state.get("readiness_flags") or []
-    recent = state.get("recent_workouts") or []
     prev = state.get("previous_recommendations") or []
 
-    # Repeated muscle groups in last 2 recommendations -> vary
-    recent_muscle_groups: set[str] = set()
-    for r in prev[:2]:
-        # We don't have muscle_group in serialized rec; use type as proxy
-        rt = r.get("recommendation_type") or ""
-        if "upper" in rt or "strength" in rt:
-            recent_muscle_groups.add("upper")
-        if "lower" in rt:
-            recent_muscle_groups.add("lower")
-        if "cardio" in rt:
-            recent_muscle_groups.add("cardio")
+    recent_upper, recent_lower, recent_cardio = _recent_load_from_previous_recommendations(prev)
 
     if score <= 0.3 or "pain_or_soreness" in flags:
         rec_type = "recovery"
@@ -201,17 +242,17 @@ def route_recommendation_type(state: RecommendationState) -> RecommendationState
         rec_type = "mobility"
     elif "low_energy" in flags or "low_sleep" in flags:
         rec_type = "recovery" if score < 0.5 else "mobility"
-    elif score >= 0.85 and "cardio" not in recent_muscle_groups:
+    elif score >= 0.85 and not recent_cardio:
         rec_type = "cardio"
     elif score >= 0.7:
-        if "upper" in recent_muscle_groups and "lower" not in recent_muscle_groups:
+        if recent_upper and not recent_lower:
             rec_type = "lower_strength"
-        elif "lower" in recent_muscle_groups and "upper" not in recent_muscle_groups:
+        elif recent_lower and not recent_upper:
             rec_type = "upper_strength"
         else:
             rec_type = "full_body"
     elif score >= 0.5:
-        rec_type = "upper_strength" if "upper" not in recent_muscle_groups else "lower_strength"
+        rec_type = "upper_strength" if not recent_upper else "lower_strength"
     else:
         rec_type = "mobility"
 
@@ -302,10 +343,17 @@ def build_recommendation(state: RecommendationState) -> RecommendationState:
     }
 
 
+# Sane ranges for recommendation validation (DB-backed)
+_VALID_SETS_RANGE = (1, 20)
+_VALID_REPS_RANGE = (1, 50)
+_VALID_REST_SECONDS_RANGE = (0, 600)
+
+
 def validate_recommendation(state: RecommendationState) -> RecommendationState:
     """
-    Validate: exercise IDs exist, belong to candidate list, no injury conflicts, reasonable volume.
-    Populate validation_errors and warnings.
+    Validate plan against DB and rules: every exercise_id must exist in Exercise, be active,
+    and belong to candidate_ids; sets/reps/rest_seconds in sane ranges; no duplicate exercise_id.
+    Does not rely only on in-memory candidate_ids—queries Exercise for existence and is_active.
     """
     errors: list[str] = []
     warnings_list: list[str] = state.get("warnings") or []
@@ -319,21 +367,73 @@ def validate_recommendation(state: RecommendationState) -> RecommendationState:
     if not exercises_plan and state.get("recommendation_type") != "rest_day":
         errors.append("recommendation_plan has no exercises")
 
+    # DB validation: resolve all exercise_ids in one query (do not rely only on in-memory state)
+    plan_eids = [item.get("exercise_id") for item in exercises_plan if item.get("exercise_id") is not None]
+    valid_active_ids: set[int] = set()
+    if plan_eids:
+        valid_active_ids = set(
+            Exercise.objects.filter(pk__in=plan_eids, is_active=True).values_list("pk", flat=True)
+        )
+
+    seen_eids: set[int] = set()
     total_sets = 0
+    sets_min, sets_max = _VALID_SETS_RANGE
+    reps_min, reps_max = _VALID_REPS_RANGE
+    rest_min, rest_max = _VALID_REST_SECONDS_RANGE
+
     for i, item in enumerate(exercises_plan):
         eid = item.get("exercise_id")
         if eid is None:
             errors.append(f"exercise at position {i} missing exercise_id")
             continue
-        if eid not in candidate_ids:
-            errors.append(f"exercise_id {eid} not in candidate list")
-        sets_val = item.get("sets") or 0
-        reps_val = item.get("reps") or 0
-        if sets_val < 0 or sets_val > 20:
-            errors.append(f"exercise {eid}: sets must be 0-20")
-        if reps_val < 0 or reps_val > 50:
-            errors.append(f"exercise {eid}: reps must be 0-50")
-        total_sets += sets_val
+
+        try:
+            eid_int = int(eid)
+        except (TypeError, ValueError):
+            errors.append(f"exercise at position {i}: exercise_id must be an integer")
+            continue
+
+        if eid_int not in valid_active_ids:
+            errors.append(f"exercise_id {eid_int} does not exist or is not active")
+            continue
+        if eid_int not in candidate_ids:
+            errors.append(f"exercise_id {eid_int} not in candidate list")
+            continue
+        if eid_int in seen_eids:
+            errors.append(f"duplicate exercise_id {eid_int} in plan")
+            continue
+        seen_eids.add(eid_int)
+
+        sets_val = item.get("sets")
+        if sets_val is None:
+            errors.append(f"exercise {eid_int}: sets is required")
+        else:
+            try:
+                sets_val = int(sets_val)
+                if sets_val < sets_min or sets_val > sets_max:
+                    errors.append(f"exercise {eid_int}: sets must be {sets_min}-{sets_max}")
+                else:
+                    total_sets += sets_val
+            except (TypeError, ValueError):
+                errors.append(f"exercise {eid_int}: sets must be an integer")
+
+        reps_val = item.get("reps")
+        if reps_val is not None:
+            try:
+                reps_val = int(reps_val)
+                if reps_val < reps_min or reps_val > reps_max:
+                    errors.append(f"exercise {eid_int}: reps must be {reps_min}-{reps_max}")
+            except (TypeError, ValueError):
+                errors.append(f"exercise {eid_int}: reps must be an integer")
+
+        rest_val = item.get("rest_seconds")
+        if rest_val is not None:
+            try:
+                rest_val = int(rest_val)
+                if rest_val < rest_min or rest_val > rest_max:
+                    errors.append(f"exercise {eid_int}: rest_seconds must be {rest_min}-{rest_max}")
+            except (TypeError, ValueError):
+                errors.append(f"exercise {eid_int}: rest_seconds must be an integer")
 
     if total_sets > 30:
         warnings_list.append("high_volume")
@@ -348,22 +448,59 @@ def validate_recommendation(state: RecommendationState) -> RecommendationState:
     }
 
 
-def fallback_recommendation(state: RecommendationState) -> RecommendationState:
+# Tags that qualify as safe for fallback (mobility/stretch/recovery/low_impact)
+_FALLBACK_SAFE_TAGS = {"mobility", "stretch", "recovery", "low_impact"}
+_FALLBACK_MAX_EXERCISES = 5
+
+
+def _get_safe_fallback_exercises(state: RecommendationState) -> list[dict]:
     """
-    On validation failure or empty candidates: produce a safe recovery recommendation.
-    Never crash the API.
+    Select exercises for fallback by policy only. Never use catalog order.
+    1. Prefer exercises tagged mobility/stretch/recovery/low_impact.
+    2. Else exercises with intensity <= 3.
+    3. Else return empty list (valid rest_day/recovery with zero exercises).
     """
     candidates = state.get("candidate_exercises") or []
     catalog = state.get("exercise_catalog") or []
+    pool = candidates if candidates else catalog
+    if not pool:
+        return []
 
-    # Prefer first low-intensity candidate; else first from catalog
-    low = [c for c in candidates if c.get("intensity", 10) <= 4]
-    fallback_exercises = low[:3] if low else catalog[:3]
+    def has_safe_tag(ex: dict) -> bool:
+        tags = ex.get("tags") or []
+        return any(t.lower() in _FALLBACK_SAFE_TAGS for t in tags if isinstance(t, str))
+
+    def intensity(ex: dict) -> int:
+        return int(ex.get("intensity") or 10)
+
+    tier1 = [e for e in pool if has_safe_tag(e)]
+    tier2 = [e for e in pool if intensity(e) <= 3]
+
+    if tier1:
+        chosen = sorted(tier1, key=intensity)[:_FALLBACK_MAX_EXERCISES]
+    elif tier2:
+        chosen = sorted(tier2, key=intensity)[:_FALLBACK_MAX_EXERCISES]
+    else:
+        chosen = []
+
+    return chosen
+
+
+def fallback_recommendation(state: RecommendationState) -> RecommendationState:
+    """
+    On validation failure or empty candidates: produce a safe recovery recommendation.
+    Safe by construction: prefer mobility/stretch/recovery/low_impact tags, else intensity <= 3,
+    else zero exercises. Never select by catalog order.
+    """
+    fallback_exercises = _get_safe_fallback_exercises(state)
 
     exercises_plan = []
     for i, ex in enumerate(fallback_exercises):
+        ex_id = ex.get("id")
+        if ex_id is None:
+            continue
         exercises_plan.append({
-            "exercise_id": ex.get("id"),
+            "exercise_id": ex_id,
             "sets": 2,
             "reps": 10,
             "rest_seconds": 60,
@@ -372,9 +509,13 @@ def fallback_recommendation(state: RecommendationState) -> RecommendationState:
         })
 
     plan = {
-        "recommendation_type": "recovery",
-        "reasoning_summary": "Safe recovery recommendation (fallback).",
-        "coach_message": "Take it easy today. Listen to your body.",
+        "recommendation_type": "rest_day" if not exercises_plan else "recovery",
+        "reasoning_summary": "Safe recovery recommendation (fallback)."
+        if exercises_plan
+        else "Rest day or light movement; no exercises selected.",
+        "coach_message": "Take it easy today. Listen to your body."
+        if exercises_plan
+        else "Rest or do light movement. No structured exercises today.",
         "exercises": exercises_plan,
     }
     return {
@@ -388,7 +529,9 @@ def fallback_recommendation(state: RecommendationState) -> RecommendationState:
 def persist_recommendation(state: RecommendationState) -> RecommendationState:
     """
     Save TrainingRecommendation and TrainingRecommendationExercise rows.
-    Return persisted_recommendation_id.
+    Defensive guard: at persistence time, only create line items for exercise_ids that
+    still exist and are active; skip invalid/stale ids and record warnings. Do not assume
+    prior validation is enough.
     """
     from django.db import transaction
     from apps.training.models import TrainingRecommendationExercise
@@ -397,12 +540,22 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
     date_str = state["date"]
     for_date = date.fromisoformat(date_str)
     plan = state.get("recommendation_plan") or {}
+    exercises_plan = plan.get("exercises") or []
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
     user = User.objects.filter(pk=user_id).first()
     if not user:
         return {**state, "persisted_recommendation_id": None}
+
+    # Defensive guard: resolve which exercise_ids still exist and are active at persist time
+    plan_ex_ids = [item.get("exercise_id") for item in exercises_plan if item.get("exercise_id") is not None]
+    valid_active_ids: set[int] = set()
+    if plan_ex_ids:
+        valid_active_ids = set(
+            Exercise.objects.filter(pk__in=plan_ex_ids, is_active=True).values_list("pk", flat=True)
+        )
+    persistence_warnings: list[str] = []
 
     with transaction.atomic():
         rec = TrainingRecommendation.objects.update_or_create(
@@ -420,17 +573,23 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
             },
         )[0]
 
-        # Link first recommended exercise for backward compat
-        exercises_plan = plan.get("exercises") or []
+        # Backward compat: set first recommended exercise only if it is valid at persist time
         first_ex_id = exercises_plan[0].get("exercise_id") if exercises_plan else None
-        if first_ex_id:
+        if first_ex_id and first_ex_id in valid_active_ids:
             rec.recommended_exercise_id = first_ex_id
+            rec.save(update_fields=["recommended_exercise_id"])
+        elif first_ex_id:
+            rec.recommended_exercise_id = None
             rec.save(update_fields=["recommended_exercise_id"])
 
         TrainingRecommendationExercise.objects.filter(recommendation=rec).delete()
-        for i, item in enumerate(exercises_plan):
+        position = 0
+        for item in exercises_plan:
             ex_id = item.get("exercise_id")
             if ex_id is None:
+                continue
+            if ex_id not in valid_active_ids:
+                persistence_warnings.append(f"skipped_invalid_exercise_id:{ex_id}")
                 continue
             TrainingRecommendationExercise.objects.create(
                 recommendation=rec,
@@ -439,10 +598,17 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
                 reps=item.get("reps") or 0,
                 rest_seconds=item.get("rest_seconds") or 0,
                 notes=item.get("notes") or "",
-                position=i,
+                position=position,
             )
+            position += 1
 
+        if persistence_warnings:
+            rec.warnings = (rec.warnings or "") + "\n" + "\n".join(persistence_warnings)
+            rec.save(update_fields=["warnings"])
+
+    state_warnings = (state.get("warnings") or []) + persistence_warnings
     return {
         **state,
         "persisted_recommendation_id": rec.id,
+        "warnings": state_warnings,
     }

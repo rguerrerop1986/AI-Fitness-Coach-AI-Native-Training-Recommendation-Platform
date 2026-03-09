@@ -1,9 +1,9 @@
 """
 LangGraph workflow: load context -> analyze readiness -> route type -> retrieve candidates
 -> build recommendation -> validate -> (persist | fallback -> persist) -> END.
+Synchronous, request-scoped; no checkpointer.
 """
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 
 from apps.training.graph.state import RecommendationState
 from apps.training.graph import nodes
@@ -39,5 +39,4 @@ workflow.add_conditional_edges("validate_recommendation", _is_valid, {
 workflow.add_edge("fallback_recommendation", "persist_recommendation")
 workflow.add_edge("persist_recommendation", END)
 
-# Compile with optional memory for debugging; production can use no checkpointer
-graph = workflow.compile(checkpointer=MemorySaver())
+graph = workflow.compile()

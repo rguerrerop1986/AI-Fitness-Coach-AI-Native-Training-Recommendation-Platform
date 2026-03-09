@@ -238,8 +238,11 @@ class GenerateRecommendationInputSerializer(serializers.Serializer):
     date = serializers.DateField(required=True)
 
 
+# ----- Response contract for POST /api/training/recommendations/generate/ -----
+
+
 class RecommendedExerciseSerializer(serializers.Serializer):
-    """Nested shape for recommended_exercise in recommendation response."""
+    """First recommended exercise (backward-compat). Same shape as catalogs.Exercise for display."""
 
     id = serializers.IntegerField()
     name = serializers.CharField()
@@ -249,16 +252,46 @@ class RecommendedExerciseSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField(), allow_empty=True)
 
 
-class RecommendationResponseSerializer(serializers.Serializer):
-    """Output shape for recommendation generate endpoint. recommended_exercise is primary; recommended_video deprecated."""
+class RecommendationPlanExerciseSerializer(serializers.Serializer):
+    """One exercise in recommendation_plan.exercises."""
+
+    exercise_id = serializers.IntegerField()
+    sets = serializers.IntegerField(min_value=0)
+    reps = serializers.IntegerField(min_value=0)
+    rest_seconds = serializers.IntegerField(min_value=0, required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    position = serializers.IntegerField(min_value=0, required=False, default=0)
+
+
+class RecommendationPlanSerializer(serializers.Serializer):
+    """Nested recommendation_plan from the graph (recommendation_type, exercises, etc.)."""
+
+    recommendation_type = serializers.CharField()
+    reasoning_summary = serializers.CharField(allow_blank=True, default="")
+    coach_message = serializers.CharField(allow_blank=True, default="")
+    exercises = RecommendationPlanExerciseSerializer(many=True, required=False, default=list)
+    metadata = serializers.JSONField(required=False, default=dict)
+
+
+class GenerateRecommendationResponseSerializer(serializers.Serializer):
+    """
+    Output contract for POST /api/training/recommendations/generate/.
+    Graph-driven: date, recommendation_plan, persisted_recommendation_id, readiness_score, warnings, error.
+    recommended_exercise is optional backward-compat (first exercise in plan).
+    """
 
     date = serializers.CharField()
-    recommended_exercise = RecommendedExerciseSerializer(allow_null=True)
+    recommendation_plan = RecommendationPlanSerializer()
+    persisted_recommendation_id = serializers.IntegerField(allow_null=True)
+    readiness_score = serializers.FloatField(allow_null=True, required=False)
+    warnings = serializers.CharField(allow_blank=True, default="")
+    error = serializers.CharField(allow_null=True, required=False)
+    # Backward-compat: first exercise in plan as a single object
+    recommended_exercise = RecommendedExerciseSerializer(allow_null=True, required=False)
     recommended_video = serializers.DictField(allow_null=True, required=False)
-    recommendation_type = serializers.CharField()
-    reasoning_summary = serializers.CharField()
-    warnings = serializers.CharField()
-    coach_message = serializers.CharField()
+    recommendation_type = serializers.CharField(required=False)
+    reasoning_summary = serializers.CharField(allow_blank=True, required=False)
+    coach_message = serializers.CharField(allow_blank=True, required=False)
 
 
 class WorkoutFeedbackAnalyzeInputSerializer(serializers.Serializer):

@@ -37,20 +37,30 @@ class TrainingRecommendationService:
                 "error": str(e),
             }
 
-        recommendation_plan = result.get("recommendation_plan") or {
-            "recommendation_type": "recovery",
-            "reasoning_summary": "",
-            "coach_message": "",
-            "exercises": [],
-        }
-        exercises = recommendation_plan.get("exercises") or []
+        recommendation_plan = result.get("recommendation_plan")
+        if not recommendation_plan or not isinstance(recommendation_plan, dict):
+            return {
+                "date": for_date,
+                "recommendation_plan": {
+                    "recommendation_type": "recovery",
+                    "reasoning_summary": "",
+                    "coach_message": "Recommendation structure missing.",
+                    "exercises": [],
+                },
+                "persisted_recommendation_id": result.get("persisted_recommendation_id"),
+                "readiness_score": result.get("readiness_score"),
+                "warnings": result.get("warnings") or [],
+                "error": "missing_plan",
+            }
+        # Empty exercises is valid for recovery, mobility, rest_day
+        persisted_id = result.get("persisted_recommendation_id")
         error = result.get("error")
-        if not error and not exercises:
-            error = "no_candidates"
+        if not error and recommendation_plan and persisted_id is None:
+            error = "persistence_failed"
         return {
             "date": for_date,
             "recommendation_plan": recommendation_plan,
-            "persisted_recommendation_id": result.get("persisted_recommendation_id"),
+            "persisted_recommendation_id": persisted_id,
             "readiness_score": result.get("readiness_score"),
             "warnings": result.get("warnings") or [],
             "error": error,

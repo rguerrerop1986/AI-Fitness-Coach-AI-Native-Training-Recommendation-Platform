@@ -72,7 +72,7 @@ class DailyCheckInListCreateView(ListCreateAPIView):
 
 
 class GenerateRecommendationView(APIView):
-    """POST /api/training/recommendations/generate/ - body: { "date": "YYYY-MM-DD" }. Returns recommendation_plan and persisted_recommendation_id."""
+    """POST /api/training/recommendations/generate/ - body: { "date": "YYYY-MM-DD" }. Response contract: GenerateRecommendationResponseSerializer (date, recommendation_plan, persisted_recommendation_id, readiness_score, warnings, error, optional recommended_exercise). 200 when valid payload; non-200 only for validation or unrecoverable failure."""
 
     permission_classes = [IsAuthenticated]
 
@@ -81,9 +81,14 @@ class GenerateRecommendationView(APIView):
         ser.is_valid(raise_exception=True)
         for_date = ser.validated_data["date"]
         result = generate_recommendation(request.user, for_date)
-        if result.get("error") == "no_candidates":
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
-        return Response(result, status=status.HTTP_200_OK)
+        # Return 200 whenever we have a valid recommendation payload (including fallbacks)
+        if result.get("recommendation_plan") is not None:
+            return Response(result, status=status.HTTP_200_OK)
+        # Unrecoverable: no plan (e.g. graph/persistence failed without fallback)
+        return Response(
+            result,
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 class WorkoutLogListCreateView(ListCreateAPIView):

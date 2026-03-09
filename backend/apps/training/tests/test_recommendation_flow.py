@@ -28,8 +28,13 @@ def user(db):
     )
 
 
+UPPER_BODY_GROUPS = {"chest", "back", "shoulders", "biceps", "triceps", "forearms"}
+MAX_RECOVERY_INTENSITY = 4
+
+
 @pytest.fixture
 def exercises(db):
+    """Mix of upper-body, lower-body, and low-intensity for behavior tests."""
     return [
         Exercise.objects.create(
             name="Recovery Stretch",
@@ -47,6 +52,40 @@ def exercises(db):
             intensity=5,
             tags=[],
             instructions="Push.",
+            is_active=True,
+        ),
+    ]
+
+
+@pytest.fixture
+def exercises_upper_and_lower(db):
+    """Upper-body and lower-body exercises for filtering tests."""
+    return [
+        Exercise.objects.create(
+            name="Push-ups",
+            muscle_group=Exercise.MuscleGroup.CHEST,
+            difficulty=Exercise.Difficulty.BEGINNER,
+            intensity=5,
+            tags=[],
+            instructions="Push.",
+            is_active=True,
+        ),
+        Exercise.objects.create(
+            name="Squats",
+            muscle_group=Exercise.MuscleGroup.QUADS,
+            difficulty=Exercise.Difficulty.BEGINNER,
+            intensity=5,
+            tags=[],
+            instructions="Squat.",
+            is_active=True,
+        ),
+        Exercise.objects.create(
+            name="Light Stretch",
+            muscle_group=Exercise.MuscleGroup.CORE,
+            difficulty=Exercise.Difficulty.BEGINNER,
+            intensity=2,
+            tags=["mobility", "low_impact"],
+            instructions="Stretch.",
             is_active=True,
         ),
     ]
@@ -138,25 +177,76 @@ class TestRouteRecommendationType:
 
 @pytest.mark.django_db
 class TestRetrieveCandidateExercises:
-    """Candidate retrieval from Exercise table."""
+    """Candidate retrieval from Exercise table: type and intensity filtering."""
 
-    def test_retrieve_returns_only_db_exercises(self, user, exercises):
+    def test_upper_strength_returns_only_upper_body_exercises(self, user, exercises_upper_and_lower):
+        """When recommendation_type is upper_strength, only upper-body-compatible exercises are returned."""
         state = {
             "user_id": user.id,
             "date": date.today().isoformat(),
             "checkin": None,
             "recent_workouts": [],
             "previous_recommendations": [],
-            "exercise_catalog": [{"id": e.id, "name": e.name, "muscle_group": e.muscle_group, "intensity": e.intensity} for e in exercises],
-            "readiness_score": 0.7,
+            "exercise_catalog": [
+                {"id": e.id, "name": e.name, "muscle_group": e.muscle_group, "intensity": e.intensity}
+                for e in exercises_upper_and_lower
+            ],
+            "readiness_score": 0.8,
             "readiness_flags": [],
             "recommendation_type": "upper_strength",
         }
         out = nodes.retrieve_candidate_exercises(state)
         assert "candidate_exercises" in out
-        ids = [c["id"] for c in out["candidate_exercises"]]
-        for e in exercises:
-            assert e.id in ids or True  # may be filtered by type
+        candidates = out["candidate_exercises"]
+        for c in candidates:
+            assert c["muscle_group"] in UPPER_BODY_GROUPS, (
+                f"upper_strength must only return upper-body exercises, got muscle_group={c['muscle_group']}"
+            )
+        # Push-ups (chest) should be in; Squats (quads) and Light Stretch (core) should be out
+        ids = [c["id"] for c in candidates]
+        push_ups = next(e for e in exercises_upper_and_lower if e.name == "Push-ups")
+        squats = next(e for e in exercises_upper_and_lower if e.name == "Squats")
+        assert push_ups.id in ids
+        assert squats.id not in ids
+
+    def test_recovery_returns_only_low_intensity_exercises(self, user, exercises_upper_and_lower):
+        """When recommendation_type is recovery, only low-intensity exercises are returned."""
+        state = {
+            "user_id": user.id,
+            "date": date.today().isoformat(),
+            "checkin": None,
+            "recent_workouts": [],
+            "previous_recommendations": [],
+            "exercise_catalog": [
+                {"id": e.id, "name": e.name, "muscle_group": e.muscle_group, "intensity": e.intensity}
+                for e in exercises_upper_and_lower
+            ],
+            "readiness_score": 0.4,
+            "readiness_flags": [],
+            "recommendation_type": "recovery",
+        }
+        out = nodes.retrieve_candidate_exercises(state)
+        assert "candidate_exercises" in out
+        for c in out["candidate_exercises"]:
+            assert c["intensity"] <= MAX_RECOVERY_INTENSITY, (
+                f"recovery must only return low-intensity exercises, got intensity={c['intensity']}"
+            )
+
+    def test_no_matching_exercises_triggers_fallback_safely(self, user, db):
+        """When no matching exercises exist (e.g. empty catalog), fallback path produces valid plan without crashing."""
+        # No exercises in DB: load_user_context gets empty catalog, retrieve gets empty candidates,
+        # build returns plan with exercises=[], validate fails -> fallback_recommendation runs -> rest_day with []
+        assert Exercise.objects.filter(is_active=True).count() == 0
+        result = graph.invoke({"user_id": user.id, "date": date.today().isoformat()})
+        assert "recommendation_plan" in result
+        plan = result["recommendation_plan"]
+        assert plan["recommendation_type"] in ("recovery", "rest_day")
+        assert "exercises" in plan
+        assert isinstance(plan["exercises"], list)
+        assert "reasoning_summary" in plan
+        assert "coach_message" in plan
+        # Persist should still run (rest_day with zero exercises is valid)
+        assert result.get("persisted_recommendation_id") is not None
 
 
 @pytest.mark.django_db
