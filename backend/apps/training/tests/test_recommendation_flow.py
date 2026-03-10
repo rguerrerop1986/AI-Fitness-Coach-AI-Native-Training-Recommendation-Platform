@@ -269,6 +269,9 @@ class TestBuildRecommendationStructuredOutput:
         assert "recommendation_type" in plan
         assert "reasoning_summary" in plan
         assert "coach_message" in plan
+        assert "session_goal" in plan
+        assert "estimated_duration_minutes" in plan
+        assert "intensity" in plan
         assert "exercises" in plan
         assert len(plan["exercises"]) >= 1
         assert plan["exercises"][0]["exercise_id"] in [e.id for e in exercises]
@@ -278,13 +281,18 @@ class TestBuildRecommendationStructuredOutput:
 class TestValidateRecommendation:
     """Validation errors and warnings."""
 
-    def test_validate_accepts_valid_plan(self, user, exercises):
+    def test_validate_accepts_valid_full_session_plan(self, user, exercises_upper_and_lower):
+        """Full session (e.g. moderate) requires at least 3 exercises."""
         state = {
             "user_id": user.id,
-            "candidate_exercises": [{"id": e.id} for e in exercises],
+            "candidate_exercises": [{"id": e.id} for e in exercises_upper_and_lower],
             "recommendation_plan": {
+                "session_goal": "Test session",
+                "recommendation_type": "moderate",
                 "exercises": [
-                    {"exercise_id": exercises[0].id, "sets": 3, "reps": 10, "rest_seconds": 60},
+                    {"exercise_id": exercises_upper_and_lower[0].id, "sets": 3, "reps": 10, "rest_seconds": 60},
+                    {"exercise_id": exercises_upper_and_lower[1].id, "sets": 2, "reps": 10, "rest_seconds": 60},
+                    {"exercise_id": exercises_upper_and_lower[2].id, "sets": 2, "reps": 8, "rest_seconds": 45},
                 ],
             },
             "checkin": {},
@@ -292,6 +300,39 @@ class TestValidateRecommendation:
         }
         out = nodes.validate_recommendation(state)
         assert out.get("validation_errors") == []
+
+    def test_validate_accepts_recovery_with_zero_or_one_exercise(self, user, exercises):
+        """rest_day/recovery/mobility_snack/breathing_reset may have 0 or 1 exercise."""
+        state = {
+            "user_id": user.id,
+            "candidate_exercises": [{"id": e.id} for e in exercises],
+            "recommendation_plan": {
+                "session_goal": "Rest",
+                "recommendation_type": "rest_day",
+                "exercises": [],
+            },
+            "checkin": {},
+            "recommendation_type": "rest_day",
+        }
+        out = nodes.validate_recommendation(state)
+        assert out.get("validation_errors") == []
+
+    def test_validate_rejects_single_exercise_for_full_session_type(self, user, exercises):
+        """A full training type (e.g. upper_strength) with only 1 exercise should fail."""
+        state = {
+            "user_id": user.id,
+            "candidate_exercises": [{"id": e.id} for e in exercises],
+            "recommendation_plan": {
+                "session_goal": "Upper",
+                "recommendation_type": "upper_strength",
+                "exercises": [{"exercise_id": exercises[0].id, "sets": 3, "reps": 10, "rest_seconds": 60}],
+            },
+            "checkin": {},
+            "recommendation_type": "upper_strength",
+        }
+        out = nodes.validate_recommendation(state)
+        errors = out.get("validation_errors") or []
+        assert any("at least" in str(e).lower() and "3" in str(e) for e in errors)
 
     def test_validate_rejects_invalid_exercise_id(self, user, exercises):
         state = {
@@ -318,8 +359,12 @@ class TestFallbackRecommendation:
         }
         out = nodes.fallback_recommendation(state)
         assert "recommendation_plan" in out
-        assert out["recommendation_plan"]["recommendation_type"] == "recovery"
-        assert isinstance(out["recommendation_plan"]["exercises"], list)
+        plan = out["recommendation_plan"]
+        assert plan["recommendation_type"] in ("recovery", "mobility_snack", "rest_day")
+        assert isinstance(plan["exercises"], list)
+        assert "session_goal" in plan
+        assert "estimated_duration_minutes" in plan
+        assert "intensity" in plan
 
 
 @pytest.mark.django_db
@@ -331,9 +376,13 @@ class TestPersistRecommendation:
             "user_id": user.id,
             "date": date.today().isoformat(),
             "recommendation_plan": {
+                "session_goal": "Test session",
                 "recommendation_type": "moderate",
                 "reasoning_summary": "Test.",
                 "coach_message": "Hi.",
+                "estimated_duration_minutes": 25,
+                "intensity": "moderate",
+                "warnings": "",
                 "exercises": [
                     {"exercise_id": exercises[0].id, "sets": 3, "reps": 12, "rest_seconds": 90, "notes": "", "position": 0},
                     {"exercise_id": exercises[1].id, "sets": 2, "reps": 10, "rest_seconds": 60, "notes": "", "position": 1},
@@ -349,6 +398,9 @@ class TestPersistRecommendation:
         assert rec.user_id == user.id
         assert rec.date == date.today()
         assert rec.recommendation_type == "moderate"
+        assert rec.metadata.get("session_goal") == "Test session"
+        assert rec.metadata.get("estimated_duration_minutes") == 25
+        assert rec.metadata.get("intensity") == "moderate"
         line_items = list(TrainingRecommendationExercise.objects.filter(recommendation=rec).order_by("position"))
         assert len(line_items) == 2
         assert line_items[0].exercise_id == exercises[0].id and line_items[0].sets == 3
@@ -366,6 +418,9 @@ class TestGraphInvoke:
         plan = result["recommendation_plan"]
         assert "recommendation_type" in plan
         assert "exercises" in plan
+        assert "session_goal" in plan
+        assert "estimated_duration_minutes" in plan
+        assert "intensity" in plan
 
 
 @pytest.mark.django_db
@@ -398,6 +453,11 @@ class TestEndpointResponse:
         data = resp.json()
         assert "recommendation_plan" in data
         assert "date" in data
-        assert "recommendation_type" in data.get("recommendation_plan", {})
-        assert "exercises" in data["recommendation_plan"]
+        plan = data.get("recommendation_plan", {})
+        assert "recommendation_type" in plan
+        assert "exercises" in plan
+        assert "session_goal" in plan
+        assert "estimated_duration_minutes" in plan
+        assert "intensity" in plan
+        assert "recommended_exercises" in data
         assert data.get("persisted_recommendation_id") is not None

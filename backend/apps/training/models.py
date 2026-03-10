@@ -37,6 +37,7 @@ class TrainingVideo(models.Model):
     )
     duration_minutes = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True)
+    url = models.URLField(blank=True, help_text='Optional video URL for client playback')
     # Stress / impact flags for rule-based filtering
     stresses_legs = models.BooleanField(default=True)
     stresses_upper_body = models.BooleanField(default=False)

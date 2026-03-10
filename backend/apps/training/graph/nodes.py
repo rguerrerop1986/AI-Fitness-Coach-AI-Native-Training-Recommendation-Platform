@@ -301,7 +301,7 @@ def retrieve_candidate_exercises(state: RecommendationState) -> RecommendationSt
         payload=readiness.payload,
     )
 
-    candidates = get_candidate_exercises(readiness, check_in, limit=10)
+    candidates = get_candidate_exercises(readiness, check_in, limit=15)
 
     # Filter by recommendation_type / muscle focus
     muscle_filter = {
@@ -347,13 +347,17 @@ def build_recommendation(state: RecommendationState) -> RecommendationState:
 _VALID_SETS_RANGE = (1, 20)
 _VALID_REPS_RANGE = (1, 50)
 _VALID_REST_SECONDS_RANGE = (0, 600)
+_VALID_DURATION_SECONDS_RANGE = (0, 300)
+
+# Types that may have 0 or 1 exercise only (not a full session)
+_LOW_LOAD_TYPES = frozenset({"rest_day", "recovery", "mobility_snack", "breathing_reset"})
+_MIN_EXERCISES_FULL_SESSION = 3
 
 
 def validate_recommendation(state: RecommendationState) -> RecommendationState:
     """
-    Validate plan against DB and rules: every exercise_id must exist in Exercise, be active,
-    and belong to candidate_ids; sets/reps/rest_seconds in sane ranges; no duplicate exercise_id.
-    Does not rely only on in-memory candidate_ids—queries Exercise for existence and is_active.
+    Validate plan: min 3 exercises for full training days; 0-1 only for rest_day/recovery/mobility_snack/breathing_reset.
+    Every exercise_id must exist in Exercise, be active, belong to candidate_ids; sane sets/reps/rest_seconds/duration_seconds.
     """
     errors: list[str] = []
     warnings_list: list[str] = state.get("warnings") or []
@@ -362,9 +366,21 @@ def validate_recommendation(state: RecommendationState) -> RecommendationState:
     candidates = state.get("candidate_exercises") or []
     candidate_ids = {c["id"] for c in candidates}
     checkin = state.get("checkin") or {}
+    rec_type = (plan.get("recommendation_type") or state.get("recommendation_type") or "").lower()
 
     exercises_plan = plan.get("exercises") or []
-    if not exercises_plan and state.get("recommendation_type") != "rest_day":
+
+    # Min exercises: full session requires at least 3 unless low-load type
+    if rec_type not in _LOW_LOAD_TYPES:
+        if len(exercises_plan) < _MIN_EXERCISES_FULL_SESSION:
+            errors.append(
+                f"recommendation_type '{rec_type}' requires at least {_MIN_EXERCISES_FULL_SESSION} exercises for a full session"
+            )
+    else:
+        if len(exercises_plan) > 2:
+            warnings_list.append("low_load_type_with_many_exercises")
+
+    if not exercises_plan and rec_type not in _LOW_LOAD_TYPES:
         errors.append("recommendation_plan has no exercises")
 
     # DB validation: resolve all exercise_ids in one query (do not rely only on in-memory state)
@@ -418,13 +434,22 @@ def validate_recommendation(state: RecommendationState) -> RecommendationState:
                 errors.append(f"exercise {eid_int}: sets must be an integer")
 
         reps_val = item.get("reps")
-        if reps_val is not None:
+        duration_val = item.get("duration_seconds")
+        if duration_val is not None:
             try:
-                reps_val = int(reps_val)
-                if reps_val < reps_min or reps_val > reps_max:
+                d = int(duration_val)
+                d_min, d_max = _VALID_DURATION_SECONDS_RANGE
+                if d < d_min or d > d_max:
+                    errors.append(f"exercise {eid_int}: duration_seconds must be {d_min}-{d_max}")
+            except (TypeError, ValueError):
+                errors.append(f"exercise {eid_int}: duration_seconds must be an integer")
+        elif reps_val is not None and not isinstance(reps_val, str):
+            try:
+                r = int(reps_val)
+                if r < reps_min or r > reps_max:
                     errors.append(f"exercise {eid_int}: reps must be {reps_min}-{reps_max}")
             except (TypeError, ValueError):
-                errors.append(f"exercise {eid_int}: reps must be an integer")
+                pass  # allow string reps e.g. "10 por lado"
 
         rest_val = item.get("rest_seconds")
         if rest_val is not None:
@@ -488,11 +513,15 @@ def _get_safe_fallback_exercises(state: RecommendationState) -> list[dict]:
 
 def fallback_recommendation(state: RecommendationState) -> RecommendationState:
     """
-    On validation failure or empty candidates: produce a safe recovery recommendation.
-    Safe by construction: prefer mobility/stretch/recovery/low_impact tags, else intensity <= 3,
-    else zero exercises. Never select by catalog order.
+    Produce a safe full-session fallback: 2-3 exercises when pool allows; else recovery/mobility_snack with 0-1.
+    Includes session_goal, estimated_duration_minutes, intensity.
     """
     fallback_exercises = _get_safe_fallback_exercises(state)
+    rec_type = state.get("recommendation_type") or "recovery"
+
+    # If only one or zero safe exercises, classify as low-load (recovery/mobility_snack)
+    if len(fallback_exercises) <= 1:
+        rec_type = "mobility_snack" if rec_type not in _LOW_LOAD_TYPES else rec_type
 
     exercises_plan = []
     for i, ex in enumerate(fallback_exercises):
@@ -501,21 +530,36 @@ def fallback_recommendation(state: RecommendationState) -> RecommendationState:
             continue
         exercises_plan.append({
             "exercise_id": ex_id,
+            "name": ex.get("name") or "",
             "sets": 2,
             "reps": 10,
-            "rest_seconds": 60,
+            "duration_seconds": None,
+            "rest_seconds": 30,
             "notes": "Recovery option.",
             "position": i,
         })
 
+    if len(exercises_plan) >= 2:
+        session_goal = "Light full session (fallback)"
+        estimated_min = max(15, len(exercises_plan) * 5)
+        intensity = "low_to_moderate"
+    else:
+        session_goal = "Recovery or mobility (fallback)"
+        estimated_min = 10 if exercises_plan else 0
+        intensity = "low"
+
     plan = {
-        "recommendation_type": "rest_day" if not exercises_plan else "recovery",
+        "session_goal": session_goal,
+        "recommendation_type": "rest_day" if not exercises_plan else rec_type,
         "reasoning_summary": "Safe recovery recommendation (fallback)."
         if exercises_plan
         else "Rest day or light movement; no exercises selected.",
         "coach_message": "Take it easy today. Listen to your body."
         if exercises_plan
         else "Rest or do light movement. No structured exercises today.",
+        "estimated_duration_minutes": estimated_min,
+        "intensity": intensity,
+        "warnings": "",
         "exercises": exercises_plan,
     }
     return {
@@ -558,6 +602,11 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
     persistence_warnings: list[str] = []
 
     with transaction.atomic():
+        metadata = dict(plan.get("metadata") or {})
+        metadata.setdefault("session_goal", plan.get("session_goal") or "")
+        metadata.setdefault("estimated_duration_minutes", plan.get("estimated_duration_minutes"))
+        metadata.setdefault("intensity", plan.get("intensity") or "")
+
         rec = TrainingRecommendation.objects.update_or_create(
             user=user,
             date=for_date,
@@ -567,7 +616,7 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
                 "coach_message": plan.get("coach_message") or "",
                 "warnings": "\n".join(state.get("warnings") or []),
                 "readiness_score": state.get("readiness_score"),
-                "metadata": plan.get("metadata") or {},
+                "metadata": metadata,
                 "rule_based_payload": {"readiness_flags": state.get("readiness_flags") or []},
                 "llm_payload": plan,
             },

@@ -2,9 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (pkg-config + cairo for pycairo used by xhtml2pdf/svglib)
 RUN apt-get update && apt-get install -y \
     gcc \
+    pkg-config \
+    libcairo2-dev \
     postgresql-client \
     libfreetype6-dev \
     libpng-dev \

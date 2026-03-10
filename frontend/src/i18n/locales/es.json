@@ -466,6 +466,7 @@
     "noActivePlan": "No hay plan activo. Contacta a tu entrenador.",
     "noPublishedPlan": "Tu coach aún no ha publicado tu plan.",
     "dashboardLoadFailed": "Error al cargar el panel",
-    "downloadPdfFailed": "Error al descargar el PDF"
+    "downloadPdfFailed": "Error al descargar el PDF",
+    "returnToDashboard": "Volver al panel"
   }
 }

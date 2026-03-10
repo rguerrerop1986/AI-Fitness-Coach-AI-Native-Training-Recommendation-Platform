@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts/ThemeContext';
-import { Download, Moon, Sun, Dumbbell, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Download, Moon, Sun, Dumbbell, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 interface Meal {
   id: number;
@@ -71,6 +72,7 @@ interface ProgressionUpdate {
 }
 
 export default function ClientPlan() {
+  const navigate = useNavigate();
   const { t, i18n: i18nInstance } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [plan, setPlan] = useState<PlanData | null>(null);
@@ -248,6 +250,16 @@ export default function ClientPlan() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Return to dashboard */}
+        <button
+          type="button"
+          onClick={() => navigate('/client/dashboard')}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 rounded"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('clientPortal.returnToDashboard')}
+        </button>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">

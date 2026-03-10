@@ -501,6 +501,153 @@ class DailyExerciseRecommendation(models.Model):
         return f'{self.client.full_name} - {self.date} ({self.get_status_display()})'
 
 
+class DailyTrainingRecommendation(models.Model):
+    """
+    Daily training recommendation for a client (one per client per date).
+    Can include either a recommended video and/or a list of exercises from catalog.
+    """
+    class RecommendationType(models.TextChoices):
+        STRENGTH = 'strength', 'Strength'
+        RECOVERY = 'recovery', 'Recovery'
+        MOBILITY = 'mobility', 'Mobility'
+        CARDIO = 'cardio', 'Cardio'
+        CORE = 'core', 'Core'
+        HIIT = 'hiit', 'HIIT'
+        FULL_BODY = 'full_body', 'Full Body'
+        REST_DAY = 'rest_day', 'Rest Day'
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='daily_training_recommendations',
+    )
+    date = models.DateField(db_index=True)
+    recommendation_type = models.CharField(
+        max_length=20,
+        choices=RecommendationType.choices,
+        default=RecommendationType.STRENGTH,
+    )
+    reasoning_summary = models.TextField(blank=True)
+    warnings = models.TextField(blank=True)
+    coach_message = models.TextField(blank=True)
+    recommended_video = models.ForeignKey(
+        'training.TrainingVideo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='daily_recommendations',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'daily_training_recommendations'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['client', 'date'],
+                name='daily_training_rec_client_date_unique',
+            ),
+        ]
+        indexes = [models.Index(fields=['client', 'date'])]
+
+    def __str__(self):
+        return f'{self.client.full_name} - {self.date} ({self.get_recommendation_type_display()})'
+
+
+class DailyTrainingRecommendationExercise(models.Model):
+    """One exercise within a daily training recommendation (sets, reps, rest)."""
+    recommendation = models.ForeignKey(
+        DailyTrainingRecommendation,
+        on_delete=models.CASCADE,
+        related_name='exercises',
+    )
+    exercise = models.ForeignKey(
+        'catalogs.Exercise',
+        on_delete=models.CASCADE,
+        related_name='daily_recommendation_line_items',
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    sets = models.PositiveSmallIntegerField(default=0)
+    reps = models.PositiveSmallIntegerField(default=0)
+    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    rest_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'daily_training_recommendation_exercises'
+        ordering = ['recommendation', 'order']
+
+    def __str__(self):
+        return f'{self.recommendation} - {self.exercise.name} ({self.sets}x{self.reps})'
+
+
+class DailyDietRecommendation(models.Model):
+    """Daily diet recommendation for a client (one per client per date)."""
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='daily_diet_recommendations',
+    )
+    date = models.DateField(db_index=True)
+    title = models.CharField(max_length=200, blank=True)
+    goal = models.CharField(max_length=100, blank=True)
+    coach_message = models.TextField(blank=True)
+    reasoning_summary = models.TextField(blank=True)
+    total_calories = models.PositiveIntegerField(null=True, blank=True)
+    protein_g = models.PositiveIntegerField(null=True, blank=True)
+    carbs_g = models.PositiveIntegerField(null=True, blank=True)
+    fat_g = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'daily_diet_recommendations'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['client', 'date'],
+                name='daily_diet_rec_client_date_unique',
+            ),
+        ]
+        indexes = [models.Index(fields=['client', 'date'])]
+
+    def __str__(self):
+        return f'{self.client.full_name} - Diet {self.date}'
+
+
+class DailyDietRecommendationMeal(models.Model):
+    """One meal within a daily diet recommendation."""
+    class MealType(models.TextChoices):
+        BREAKFAST = 'breakfast', 'Breakfast'
+        LUNCH = 'lunch', 'Lunch'
+        DINNER = 'dinner', 'Dinner'
+        SNACK = 'snack', 'Snack'
+        PRE_WORKOUT = 'pre_workout', 'Pre-workout'
+        POST_WORKOUT = 'post_workout', 'Post-workout'
+
+    recommendation = models.ForeignKey(
+        DailyDietRecommendation,
+        on_delete=models.CASCADE,
+        related_name='meals',
+    )
+    meal_type = models.CharField(max_length=20, choices=MealType.choices)
+    title = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    calories = models.PositiveIntegerField(null=True, blank=True)
+    protein_g = models.PositiveIntegerField(null=True, blank=True)
+    carbs_g = models.PositiveIntegerField(null=True, blank=True)
+    fat_g = models.PositiveIntegerField(null=True, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'daily_diet_recommendation_meals'
+        ordering = ['recommendation', 'order']
+
+    def __str__(self):
+        return f'{self.recommendation} - {self.get_meal_type_display()}: {self.title or self.description[:50]}'
+
+
 class ClientProgressionState(models.Model):
     """
     Persistent state for closed-loop recommendation V1.1.

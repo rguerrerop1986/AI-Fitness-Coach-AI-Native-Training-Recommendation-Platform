@@ -79,7 +79,14 @@ class TestGenerateRecommendationEndpoint:
         assert data["recommended_exercise"]["muscle_group"] in [e.muscle_group for e in exercise_candidates]
         assert "recommendation_plan" in data
         assert data["recommendation_plan"]["exercises"]
-        assert data["recommendation_type"] in ("recovery", "light", "moderate", "intense", "mobility", "upper_strength", "lower_strength", "cardio", "full_body", "rest_day")
+        assert data["recommendation_type"] in (
+            "recovery", "light", "moderate", "intense", "mobility", "mobility_snack", "breathing_reset",
+            "upper_strength", "lower_strength", "cardio", "full_body", "core_recovery", "rest_day",
+        )
+        assert "recommended_exercises" in data
+        assert "session_goal" in data
+        assert "estimated_duration_minutes" in data
+        assert "intensity" in data
         assert "reasoning_summary" in data
         assert "coach_message" in data
 
@@ -98,17 +105,18 @@ class TestGenerateRecommendationEndpoint:
         line_items = list(TrainingRecommendationExercise.objects.filter(recommendation=rec))
         assert len(line_items) >= 1
 
-    def test_no_candidates_only_when_no_eligible_exercises(self, api_client, user):
-        """no_candidates returned only when Exercise catalog has no eligible exercises (e.g. recovery + all high intensity)."""
-        # No check-in, no exercises in DB -> no candidates
+    def test_empty_catalog_returns_200_with_rest_plan(self, api_client, user):
+        """When Exercise catalog is empty, return 200 with a valid rest/recovery plan (0 exercises)."""
         resp = api_client.post(
             "/api/training/recommendations/generate/",
             {"date": date.today().isoformat()},
             format="json",
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 200
         data = resp.json()
-        assert data.get("error") == "no_candidates"
+        assert "recommendation_plan" in data
+        assert data["recommendation_plan"]["recommendation_type"] in ("recovery", "rest_day", "mobility_snack")
+        assert data["recommendation_plan"]["exercises"] == []
         assert data.get("recommended_exercise") is None
 
     def test_with_active_exercises_does_not_return_no_candidates(
@@ -144,7 +152,7 @@ class TestGenerateRecommendationEndpoint:
         assert resp.status_code == 400
 
     def test_recommendation_uses_exercise_catalog_not_training_video(self, api_client, user):
-        """If we only have TrainingVideos and zero Exercises, we get no_candidates. Fails if flow used TrainingVideo for candidates."""
+        """If we only have TrainingVideos and zero Exercises, we get a valid rest plan (0 exercises), not video-based candidates."""
         TrainingVideo.objects.create(
             name="Legacy Video",
             program="Insanity",
@@ -158,6 +166,7 @@ class TestGenerateRecommendationEndpoint:
             {"date": date.today().isoformat()},
             format="json",
         )
-        assert resp.status_code == 400
-        assert resp.json().get("error") == "no_candidates"
-        assert resp.json().get("recommended_exercise") is None
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["recommendation_plan"]["exercises"] == []
+        assert data.get("recommended_exercise") is None
