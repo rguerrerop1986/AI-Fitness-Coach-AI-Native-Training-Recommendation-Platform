@@ -433,6 +433,65 @@ class CheckIn(models.Model):
         super().save(*args, **kwargs)
 
 
+class DailyReadinessCheckin(models.Model):
+    """Client daily readiness/check-in for contextual dashboard recommendations."""
+    class PreferredTrainingMode(models.TextChoices):
+        INSANITY = 'insanity', 'Insanity'
+        HYBRID = 'hybrid', 'Hybrid'
+        GYM_STRENGTH = 'gym_strength', 'Gym Strength'
+        MOBILITY_RECOVERY = 'mobility_recovery', 'Mobility Recovery'
+        AUTO = 'auto', 'Auto'
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='daily_readiness_checkins',
+    )
+    date = models.DateField(db_index=True)
+
+    # Escalas 1–10
+    sleep_quality = models.PositiveSmallIntegerField(null=True, blank=True)
+    diet_adherence_yesterday = models.PositiveSmallIntegerField(null=True, blank=True)
+    motivation_today = models.PositiveSmallIntegerField(null=True, blank=True)
+    energy_level = models.PositiveSmallIntegerField(null=True, blank=True)
+    stress_level = models.PositiveSmallIntegerField(null=True, blank=True)
+    muscle_soreness = models.PositiveSmallIntegerField(null=True, blank=True)
+    readiness_to_train = models.PositiveSmallIntegerField(null=True, blank=True)
+    mood = models.PositiveSmallIntegerField(null=True, blank=True)
+    hydration_level = models.PositiveSmallIntegerField(null=True, blank=True)
+    yesterday_training_intensity = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # Booleanos / selección
+    slept_poorly = models.BooleanField(default=False)
+    ate_poorly_yesterday = models.BooleanField(default=False)
+    feels_100_percent = models.BooleanField(default=False)
+    wants_video_today = models.BooleanField(default=False)
+    preferred_training_mode = models.CharField(
+        max_length=32,
+        choices=PreferredTrainingMode.choices,
+        default=PreferredTrainingMode.AUTO,
+    )
+
+    comments = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'daily_readiness_checkins'
+        ordering = ['-date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['client', 'date'],
+                name='daily_readiness_client_date_unique',
+            ),
+        ]
+        indexes = [models.Index(fields=['client', 'date'])]
+
+    def __str__(self):
+        return f'{self.client.full_name} readiness {self.date}'
+
+
 class DailyExerciseRecommendation(models.Model):
     """
     Persisted daily exercise recommendation for a client (V1 heuristic engine).
@@ -516,6 +575,21 @@ class DailyTrainingRecommendation(models.Model):
         FULL_BODY = 'full_body', 'Full Body'
         REST_DAY = 'rest_day', 'Rest Day'
 
+    class TrainingGroup(models.TextChoices):
+        UPPER_BODY = 'upper_body', 'Tren superior'
+        LOWER_BODY = 'lower_body', 'Tren inferior'
+        CORE = 'core', 'Core'
+        INSANITY = 'insanity', 'Insanity'
+        FULL_BODY = 'full_body', 'Full Body'
+        ACTIVE_RECOVERY = 'active_recovery', 'Reposo activo'
+
+    class Modality(models.TextChoices):
+        INSANITY = 'insanity', 'Insanity Video'
+        HYBRID = 'hybrid', 'Hybrid'
+        GYM_STRENGTH = 'gym_strength', 'Gym Strength'
+        MOBILITY_RECOVERY = 'mobility_recovery', 'Mobility Recovery'
+        AUTO = 'auto', 'Auto'
+
     client = models.ForeignKey(
         Client,
         on_delete=models.CASCADE,
@@ -526,6 +600,25 @@ class DailyTrainingRecommendation(models.Model):
         max_length=20,
         choices=RecommendationType.choices,
         default=RecommendationType.STRENGTH,
+    )
+    training_group = models.CharField(
+        max_length=20,
+        choices=TrainingGroup.choices,
+        blank=True,
+        help_text='Focus group for display: upper_body, lower_body, core, etc.',
+    )
+    modality = models.CharField(
+        max_length=32,
+        choices=Modality.choices,
+        default=Modality.AUTO,
+        blank=True,
+        help_text='Delivery modality: insanity, hybrid, gym_strength, mobility_recovery, auto.',
+    )
+    intensity_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text='Expected intensity level 1-10 from AI recommendation.',
     )
     reasoning_summary = models.TextField(blank=True)
     warnings = models.TextField(blank=True)
@@ -646,6 +739,40 @@ class DailyDietRecommendationMeal(models.Model):
 
     def __str__(self):
         return f'{self.recommendation} - {self.get_meal_type_display()}: {self.title or self.description[:50]}'
+
+
+class DailyDietRecommendationMealFood(models.Model):
+    """Food item within a daily diet recommendation meal (links to catalog Food)."""
+    meal = models.ForeignKey(
+        DailyDietRecommendationMeal,
+        on_delete=models.CASCADE,
+        related_name='meal_foods',
+    )
+    food = models.ForeignKey(
+        'catalogs.Food',
+        on_delete=models.CASCADE,
+        related_name='daily_recommendation_meal_foods',
+    )
+    quantity = models.DecimalField(
+        max_digits=8,
+        decimal_places=1,
+        default=1,
+        validators=[MinValueValidator(0.1)],
+        help_text='Quantity in the given unit (e.g. grams or pieces)',
+    )
+    unit = models.CharField(
+        max_length=20,
+        default='g',
+        help_text='Unit: g, ml, pieza, etc.',
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'daily_diet_recommendation_meal_foods'
+        ordering = ['meal', 'order']
+
+    def __str__(self):
+        return f'{self.meal} - {self.food.name} ({self.quantity} {self.unit})'
 
 
 class ClientProgressionState(models.Model):

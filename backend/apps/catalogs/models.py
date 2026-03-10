@@ -242,3 +242,25 @@ class Exercise(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_muscle_group_display()})"
+
+    def save(self, *args, **kwargs):
+        """
+        Normalize tags for consistent classification:
+        - Ensure list type
+        - Cast to str, strip whitespace
+        - Lowercase
+        - Remove duplicates and empty values
+        """
+        raw_tags = self.tags or []
+        if not isinstance(raw_tags, (list, tuple)):
+            raw_tags = [raw_tags]
+        normalized: list[str] = []
+        for t in raw_tags:
+            if t is None:
+                continue
+            s = str(t).strip().lower()
+            if not s or s in normalized:
+                continue
+            normalized.append(s)
+        self.tags = normalized
+        super().save(*args, **kwargs)

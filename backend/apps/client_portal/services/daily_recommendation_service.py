@@ -1,10 +1,13 @@
 """
 Daily recommendation service: get-or-create training and diet recommendations for the client dashboard.
 Idempotent per (client, date). Uses catalog exercises/videos and client context (checkins, logs, plan).
+Diet: built strictly from catalog Food (or from active DietPlan meal items when present).
+Training: built strictly from catalog Exercise; training_group derived and persisted.
 """
 import logging
 from datetime import date, timedelta
-from typing import Any, Optional, Tuple
+from decimal import Decimal
+from typing import Any, List, Optional, Tuple
 
 from django.db import transaction
 from django.utils import timezone
@@ -18,9 +21,10 @@ from apps.tracking.models import (
     DailyTrainingRecommendationExercise,
     DailyDietRecommendation,
     DailyDietRecommendationMeal,
+    DailyDietRecommendationMealFood,
     DailyExerciseRecommendation,
 )
-from apps.catalogs.models import Exercise
+from apps.catalogs.models import Exercise, Food
 from apps.training.models import TrainingVideo
 from apps.recommendations.selectors import (
     get_active_plan_cycle_for_client,
@@ -30,6 +34,30 @@ from apps.recommendations.selectors import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Minimum active foods required to build a daily diet from catalog (no plan)
+MIN_FOODS_FOR_DIET = 6
+
+# Minimum active exercises required to build a daily training from catalog (no video)
+MIN_EXERCISES_FOR_TRAINING = 2
+
+# Diet recommendation is the same for a 15-day period; training is daily
+DIET_PERIOD_DAYS = 15
+_DIET_EPOCH = date(2000, 1, 1)
+
+
+def _diet_period_start(for_date: date) -> date:
+    """Return the first day of the 15-day period containing for_date."""
+    days_since_epoch = (for_date - _DIET_EPOCH).days
+    period_index = days_since_epoch // DIET_PERIOD_DAYS
+    return _DIET_EPOCH + timedelta(days=period_index * DIET_PERIOD_DAYS)
+
+
+class InsufficientCatalogError(Exception):
+    """Raised when catalog (foods or exercises) has too few items to build a recommendation."""
+    def __init__(self, message: str, catalog: str):
+        self.catalog = catalog  # 'foods' or 'exercises'
+        super().__init__(message)
 
 
 def build_client_recommendation_context(
@@ -100,6 +128,7 @@ def build_client_recommendation_context(
     exercises_count = Exercise.objects.filter(is_active=True).count()
     videos_count = TrainingVideo.objects.filter(is_active=True).count()
 
+    foods_count = Food.objects.filter(is_active=True).count()
     return {
         'client_id': client.id,
         'target_date': target_date,
@@ -123,8 +152,124 @@ def build_client_recommendation_context(
         'workout_plan': workout_plan,
         'exercises_count': exercises_count,
         'videos_count': videos_count,
+        'foods_count': foods_count,
         'client_level': (client.level or 'beginner').lower(),
     }
+
+
+INSANITY_NAME_PATTERNS = [
+    'insanity',
+    'max interval',
+    'pure cardio',
+    'cardio recovery',
+    'core cardio & balance',
+    'plyometric cardio circuit',
+    'upper body weight training',
+    'max recovery',
+    'cardio abs',
+]
+
+
+def _is_insanity_name(name: str | None) -> bool:
+    if not name:
+        return False
+    lower = name.lower()
+    return any(pat in lower for pat in INSANITY_NAME_PATTERNS)
+
+
+def _is_insanity_exercise(ex: Exercise) -> bool:
+    tags = [str(t).lower() for t in (ex.tags or [])]
+    if 'insanity' in tags:
+        return True
+    return _is_insanity_name(ex.name)
+
+
+def _is_active_recovery_exercise(ex: Exercise) -> bool:
+    """
+    Heurística para reposo activo: cardio suave, máquinas o movilidad.
+    Usa muscle_group, equipment_type y tags.
+    """
+    mg = (ex.muscle_group or '').lower()
+    eq = (ex.equipment_type or '').lower()
+    tags = [str(t).lower() for t in (ex.tags or [])]
+    low_impact_tags = {'low_impact', 'no-impact', 'warmup', 'recovery', 'cooldown'}
+    if mg == 'cardio' and (low_impact_tags & set(tags)):
+        return True
+    if mg == 'cardio' and eq == 'maquina':
+        return True
+    if 'mobility' in tags or 'movilidad' in tags:
+        return True
+    return False
+
+
+def _derive_training_group(
+    rec_type: str,
+    exercises: List[Exercise],
+    prefer_recovery: bool,
+) -> str:
+    """
+    Derive training_group from recommendation type and exercise list.
+    Returns choice value: upper_body, lower_body, core, insanity, full_body, active_recovery.
+    """
+    if prefer_recovery or rec_type == DailyTrainingRecommendation.RecommendationType.RECOVERY:
+        # Si todos los ejercicios son cardio suave / movilidad, usar reposo activo
+        if exercises and all(_is_active_recovery_exercise(ex) for ex in exercises):
+            return DailyTrainingRecommendation.TrainingGroup.ACTIVE_RECOVERY
+        # Fallback: reposo activo como tipo global de día
+        return DailyTrainingRecommendation.TrainingGroup.ACTIVE_RECOVERY
+
+    if not exercises:
+        return DailyTrainingRecommendation.TrainingGroup.FULL_BODY
+
+    # 1) Insanity: por nombre o tags en cualquiera de los ejercicios
+    if any(_is_insanity_exercise(ex) for ex in exercises):
+        return DailyTrainingRecommendation.TrainingGroup.INSANITY
+
+    # 2) Heurística de grupos musculares principales
+    upper_mg = {'shoulders', 'back', 'chest', 'biceps', 'triceps', 'forearms'}
+    lower_mg = {'quads', 'hamstrings', 'glutes', 'calves'}
+    core_mg = {'core'}
+
+    counts = {'upper': 0, 'lower': 0, 'core': 0}
+    has_full_body = False
+    has_cardio = False
+    has_active_recovery_like = False
+
+    for ex in exercises:
+        mg = (ex.muscle_group or '').lower()
+        if mg in upper_mg:
+            counts['upper'] += 1
+        elif mg in lower_mg:
+            counts['lower'] += 1
+        elif mg in core_mg:
+            counts['core'] += 1
+        elif mg == 'full_body':
+            has_full_body = True
+        elif mg == 'cardio':
+            has_cardio = True
+        if _is_active_recovery_exercise(ex):
+            has_active_recovery_like = True
+
+    # 3) Cardio suave / recuperación activa sin fuerza clara
+    if has_cardio and has_active_recovery_like and counts['upper'] == 0 and counts['lower'] == 0:
+        return DailyTrainingRecommendation.TrainingGroup.ACTIVE_RECOVERY
+
+    # 4) Solo core
+    if counts['core'] and counts['upper'] == 0 and counts['lower'] == 0 and not has_full_body:
+        return DailyTrainingRecommendation.TrainingGroup.CORE
+
+    # 5) Full body explícito o mezcla fuerte de tren superior e inferior
+    if has_full_body or (counts['upper'] and counts['lower']):
+        return DailyTrainingRecommendation.TrainingGroup.FULL_BODY
+
+    # 6) Predominio tren superior / inferior
+    if counts['upper'] > counts['lower']:
+        return DailyTrainingRecommendation.TrainingGroup.UPPER_BODY
+    if counts['lower'] > counts['upper']:
+        return DailyTrainingRecommendation.TrainingGroup.LOWER_BODY
+
+    # 7) Fallback: full body
+    return DailyTrainingRecommendation.TrainingGroup.FULL_BODY
 
 
 def generate_training_recommendation(
@@ -135,7 +280,8 @@ def generate_training_recommendation(
     """
     Create and persist a daily training recommendation for client on target_date.
     Idempotent: if one already exists, returns it. Otherwise builds from context:
-    favors recovery/light when fatigue high; uses video or exercises from catalog.
+    only catalog exercises (or video). Sets training_group. Raises InsufficientCatalogError
+    if no video and not enough exercises.
     """
     existing = (
         DailyTrainingRecommendation.objects.filter(client=client, date=target_date)
@@ -174,7 +320,6 @@ def generate_training_recommendation(
         max_intensity = 4
         rationale_parts.append('Sesión suave según tu energía reciente.')
     elif yesterday_training and yesterday_training.recommendation_type == rec_type:
-        # Slight variation: if yesterday was strength, today could be cardio or mobility
         rec_type = DailyTrainingRecommendation.RecommendationType.CARDIO
         rationale_parts.append('Variamos el estímulo respecto a ayer.')
 
@@ -186,7 +331,6 @@ def generate_training_recommendation(
     if prefer_recovery:
         coach_message = 'Día de recuperación activa. Escucha a tu cuerpo.'
 
-    # Choose video or exercises
     recommended_video = None
     exercises_to_add: list[Tuple[Exercise, int, int, Optional[int], Optional[int], str]] = []
 
@@ -215,7 +359,7 @@ def generate_training_recommendation(
         qs = qs.filter(difficulty=difficulty)
         candidates = list(qs[:8])
         exclude_type = yesterday_training.recommendation_type if yesterday_training else None
-        for i, ex in enumerate(candidates[:4]):
+        for ex in candidates[:4]:
             ex_type = exercise_to_type(ex)
             if exclude_type and getattr(ex_type, 'value', ex_type) == exclude_type:
                 continue
@@ -226,16 +370,44 @@ def generate_training_recommendation(
             ex = candidates[0]
             exercises_to_add.append((ex, 3, 12, None, 60, ''))
 
-    elif not recommended_video and videos_count > 0:
-        video = TrainingVideo.objects.filter(is_active=True).order_by('?').first()
-        if video:
-            recommended_video = video
+    if not recommended_video and not exercises_to_add:
+        if exercises_count < MIN_EXERCISES_FOR_TRAINING and videos_count == 0:
+            raise InsufficientCatalogError(
+                f'No hay suficientes ejercicios en el catálogo (mínimo {MIN_EXERCISES_FOR_TRAINING}). '
+                'Contacta a tu coach para dar de alta ejercicios.',
+                catalog='exercises',
+            )
+        if videos_count > 0:
+            video = TrainingVideo.objects.filter(is_active=True).order_by('?').first()
+            if video:
+                recommended_video = video
+
+    training_group = DailyTrainingRecommendation.TrainingGroup.FULL_BODY
+    if recommended_video and not exercises_to_add:
+        # Clasificar videos tipo Insanity por nombre
+        if _is_insanity_name(getattr(recommended_video, 'name', None)) or getattr(
+            recommended_video, 'program', ''
+        ).lower() == 'insanity':
+            training_group = DailyTrainingRecommendation.TrainingGroup.INSANITY
+        else:
+            training_group = (
+                DailyTrainingRecommendation.TrainingGroup.ACTIVE_RECOVERY
+                if prefer_recovery
+                else DailyTrainingRecommendation.TrainingGroup.FULL_BODY
+            )
+    elif exercises_to_add:
+        training_group = _derive_training_group(
+            rec_type,
+            [e[0] for e in exercises_to_add],
+            prefer_recovery,
+        )
 
     with transaction.atomic():
         rec = DailyTrainingRecommendation.objects.create(
             client=client,
             date=target_date,
             recommendation_type=rec_type,
+            training_group=training_group,
             reasoning_summary=reasoning_summary,
             warnings=warnings,
             coach_message=coach_message,
@@ -253,10 +425,9 @@ def generate_training_recommendation(
                 notes=notes or '',
             )
         logger.info(
-            'Created DailyTrainingRecommendation id=%s client=%s date=%s video=%s exercises=%s',
-            rec.id, client.id, target_date, bool(recommended_video), len(exercises_to_add),
+            'Created DailyTrainingRecommendation id=%s client=%s date=%s video=%s exercises=%s training_group=%s',
+            rec.id, client.id, target_date, bool(recommended_video), len(exercises_to_add), training_group,
         )
-    # Refetch with prefetch for response
     return (
         DailyTrainingRecommendation.objects.filter(pk=rec.pk)
         .select_related('recommended_video')
@@ -265,19 +436,135 @@ def generate_training_recommendation(
     )
 
 
+def ensure_training_group(rec: DailyTrainingRecommendation) -> DailyTrainingRecommendation:
+    """
+    Backwards compatibility: derive and persist training_group for older
+    DailyTrainingRecommendation rows that lack it.
+    """
+    if getattr(rec, 'training_group', None):
+        return rec
+
+    # Prefer exercises when disponibles
+    line_items = list(rec.exercises.select_related('exercise').all())
+    exercises: List[Exercise] = [li.exercise for li in line_items if li.exercise]
+
+    if exercises:
+        group = _derive_training_group(
+            rec.recommendation_type,
+            exercises,
+            prefer_recovery=(rec.recommendation_type == DailyTrainingRecommendation.RecommendationType.RECOVERY),
+        )
+    else:
+        video = rec.recommended_video
+        if video and (_is_insanity_name(video.name) or (video.program or '').lower() == 'insanity'):
+            group = DailyTrainingRecommendation.TrainingGroup.INSANITY
+        elif video and rec.recommendation_type == DailyTrainingRecommendation.RecommendationType.RECOVERY:
+            group = DailyTrainingRecommendation.TrainingGroup.ACTIVE_RECOVERY
+        else:
+            group = DailyTrainingRecommendation.TrainingGroup.FULL_BODY
+
+    rec.training_group = group
+    rec.save(update_fields=['training_group', 'updated_at'])
+    return rec
+
+
+def _meal_type_from_plan(plan_meal_type: str) -> str:
+    """Map Plan Meal.MealType to DailyDietRecommendationMeal.MealType."""
+    allowed = {'breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout'}
+    if plan_meal_type in allowed:
+        return plan_meal_type
+    return 'snack'
+
+
+def _build_diet_from_plan(
+    diet_plan: DietPlan,
+    total_calories: int,
+    protein_g: int,
+    carbs_g: int,
+    fat_g: int,
+) -> Tuple[str, str, int, int, int, int, List[Tuple[str, str, List[Tuple[Any, Decimal, str]]]]]:
+    """
+    Build meal data from active diet plan meals that have real Food items.
+    Returns (title, goal, total_calories, protein_g, carbs_g, fat_g, meals_data).
+    meals_data: list of (meal_type, meal_title, [(food, quantity, unit), ...]).
+    """
+    title = diet_plan.title or 'Plan diario personalizado'
+    goal = diet_plan.get_goal_display() if diet_plan.goal else 'Mantenimiento'
+    meals_with_foods: List[Tuple[str, str, List[Tuple[Any, Decimal, str]]]] = []
+    for plan_meal in diet_plan.meals.all().order_by('order')[:6]:
+        items = list(plan_meal.items.select_related('food').all())
+        if not items:
+            continue
+        meal_type = _meal_type_from_plan(plan_meal.meal_type)
+        meal_title = plan_meal.name or plan_meal.get_meal_type_display()
+        food_list = []
+        for item in items:
+            qty = item.quantity
+            unit = 'g'
+            food_list.append((item.food, qty, unit))
+        meals_with_foods.append((meal_type, meal_title, food_list))
+    if not meals_with_foods:
+        return title, goal, total_calories, protein_g, carbs_g, fat_g, []
+    return title, goal, total_calories, protein_g, carbs_g, fat_g, meals_with_foods
+
+
+def _build_diet_from_catalog(
+    foods_count: int,
+) -> Tuple[str, str, int, int, int, int, List[Tuple[str, str, List[Tuple[Any, Decimal, str]]]]]:
+    """
+    Build meal data from catalog Food only. Requires at least MIN_FOODS_FOR_DIET.
+    Returns (title, goal, total_calories, protein_g, carbs_g, fat_g, meals_data).
+    """
+    if foods_count < MIN_FOODS_FOR_DIET:
+        raise InsufficientCatalogError(
+            f'No hay suficientes alimentos en el catálogo (mínimo {MIN_FOODS_FOR_DIET}). '
+            'Contacta a tu coach para dar de alta alimentos.',
+            catalog='foods',
+        )
+    title = 'Plan diario personalizado'
+    goal = 'Mantenimiento'
+    total_calories = 1800
+    protein_g = 120
+    carbs_g = 180
+    fat_g = 60
+    # Select active foods with variety (by nutritional_group if available)
+    all_foods = list(Food.objects.filter(is_active=True).order_by('?')[:24])
+    per_meal = max(2, len(all_foods) // 3)
+    meals_spec = [
+        ('breakfast', 'Desayuno'),
+        ('lunch', 'Comida'),
+        ('dinner', 'Cena'),
+    ]
+    meals_with_foods: List[Tuple[str, str, List[Tuple[Any, Decimal, str]]]] = []
+    offset = 0
+    for meal_type, meal_title in meals_spec:
+        chunk = all_foods[offset:offset + per_meal] or all_foods[offset:offset + 1]
+        offset += len(chunk)
+        if not chunk:
+            break
+        food_list = []
+        for f in chunk:
+            # Default quantity: 100g or 1 piece for small counts
+            qty = Decimal('100')
+            unit = 'g'
+            food_list.append((f, qty, unit))
+        meals_with_foods.append((meal_type, meal_title, food_list))
+    return title, goal, total_calories, protein_g, carbs_g, fat_g, meals_with_foods
+
+
 def generate_diet_recommendation(
     client: Client,
     target_date: date,
     context: Optional[dict] = None,
 ) -> DailyDietRecommendation:
     """
-    Create and persist a daily diet recommendation for client on target_date.
-    Idempotent. If active plan with diet_plan exists, derive daily view from it;
-    otherwise create a safe default recommendation.
+    Create and persist a daily diet recommendation using only catalog Food
+    (or from active DietPlan meal items when present). Never uses placeholder text.
+    Raises InsufficientCatalogError if catalog has too few foods and plan has no items.
     """
     existing = (
         DailyDietRecommendation.objects.filter(client=client, date=target_date)
-        .prefetch_related('meals')
+        .prefetch_related('meals__meal_foods__food')
         .first()
     )
     if existing:
@@ -286,50 +573,35 @@ def generate_diet_recommendation(
     ctx = context or build_client_recommendation_context(client, target_date)
     diet_plan = ctx.get('diet_plan')
     active_cycle = ctx.get('active_cycle')
+    foods_count = ctx.get('foods_count', 0)
 
-    title = 'Plan diario personalizado'
-    goal = 'Mantenimiento'
     coach_message = 'Mantén hidratación y distribuye proteína durante el día.'
     reasoning_summary = 'Plan generado según tu contexto reciente.'
     total_calories = 1800
     protein_g = 120
     carbs_g = 180
     fat_g = 60
-    meals_data: list[Tuple[str, str, str, Optional[int], int, int, int]] = []
+    meals_with_foods: List[Tuple[str, str, List[Tuple[Any, Decimal, str]]]] = []
+    title = 'Plan diario personalizado'
+    goal = 'Mantenimiento'
 
     if diet_plan and active_cycle:
-        title = diet_plan.title or title
-        goal = diet_plan.get_goal_display() if diet_plan.goal else goal
-        total_calories = diet_plan.daily_calories or total_calories
+        if diet_plan.daily_calories:
+            total_calories = int(diet_plan.daily_calories)
         if diet_plan.protein_pct and diet_plan.daily_calories:
-            protein_g = int((diet_plan.daily_calories * float(diet_plan.protein_pct) / 100) / 4)
+            protein_g = int((float(diet_plan.daily_calories) * float(diet_plan.protein_pct) / 100) / 4)
         if diet_plan.carbs_pct and diet_plan.daily_calories:
-            carbs_g = int((diet_plan.daily_calories * float(diet_plan.carbs_pct) / 100) / 4)
+            carbs_g = int((float(diet_plan.daily_calories) * float(diet_plan.carbs_pct) / 100) / 4)
         if diet_plan.fat_pct and diet_plan.daily_calories:
-            fat_g = int((diet_plan.daily_calories * float(diet_plan.fat_pct) / 100) / 9)
-        for meal in diet_plan.meals.all().order_by('order')[:6]:
-            meal_type = meal.meal_type
-            meal_title = meal.name or meal.get_meal_type_display()
-            desc = meal.description or ''
-            cal = None
-            for item in meal.items.all():
-                try:
-                    cal = (cal or 0) + int(item.total_calories or 0)
-                except (TypeError, ValueError):
-                    pass
-            meals_data.append((meal_type, meal_title, desc, cal, 0, 0, 0))
-        if not meals_data:
-            meals_data = [
-                ('breakfast', 'Desayuno', 'Incluye proteína y carbohidratos (ej. huevos, avena, fruta)', 450, 25, 50, 15),
-                ('lunch', 'Comida', 'Comida principal equilibrada', 600, 35, 60, 20),
-                ('dinner', 'Cena', 'Cena ligera', 450, 30, 45, 15),
-            ]
-    else:
-        meals_data = [
-            ('breakfast', 'Desayuno alto en proteína', 'Huevos, avena y fruta', 450, 25, 50, 15),
-            ('lunch', 'Comida principal', 'Proteína, vegetales y carbohidratos', 600, 35, 60, 20),
-            ('dinner', 'Cena', 'Proteína y vegetales', 450, 30, 45, 15),
-        ]
+            fat_g = int((float(diet_plan.daily_calories) * float(diet_plan.fat_pct) / 100) / 9)
+        title, goal, total_calories, protein_g, carbs_g, fat_g, meals_with_foods = _build_diet_from_plan(
+            diet_plan, total_calories, protein_g, carbs_g, fat_g,
+        )
+
+    if not meals_with_foods:
+        title, goal, total_calories, protein_g, carbs_g, fat_g, meals_with_foods = _build_diet_from_catalog(
+            foods_count,
+        )
 
     with transaction.atomic():
         rec = DailyDietRecommendation.objects.create(
@@ -344,28 +616,37 @@ def generate_diet_recommendation(
             carbs_g=carbs_g,
             fat_g=fat_g,
         )
-        for order, (meal_type, meal_title, desc, cal, p, c, f) in enumerate(meals_data, 1):
-            # Map meal_type to our enum (breakfast, lunch, dinner, snack)
-            mt = meal_type if meal_type in ('breakfast', 'lunch', 'dinner', 'snack',
-                                           'pre_workout', 'post_workout') else 'snack'
-            if mt not in ('breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout'):
-                mt = 'snack'
-            DailyDietRecommendationMeal.objects.create(
+        for order, (meal_type, meal_title, food_list) in enumerate(meals_with_foods, 1):
+            mt = _meal_type_from_plan(meal_type)
+            meal_cal = None
+            meal_p = meal_c = meal_f = None
+            meal_obj = DailyDietRecommendationMeal.objects.create(
                 recommendation=rec,
                 meal_type=mt,
                 title=meal_title,
-                description=desc,
-                calories=cal,
-                protein_g=p or None,
-                carbs_g=c or None,
-                fat_g=f or None,
+                description='',
+                calories=meal_cal,
+                protein_g=meal_p,
+                carbs_g=meal_c,
+                fat_g=meal_f,
                 order=order,
             )
-        logger.info('Created DailyDietRecommendation id=%s client=%s date=%s', rec.id, client.id, target_date)
+            for idx, (food, quantity, unit) in enumerate(food_list):
+                DailyDietRecommendationMealFood.objects.create(
+                    meal=meal_obj,
+                    food=food,
+                    quantity=quantity,
+                    unit=unit,
+                    order=idx + 1,
+                )
+        logger.info(
+            'Created DailyDietRecommendation id=%s client=%s date=%s meals=%s',
+            rec.id, client.id, target_date, len(meals_with_foods),
+        )
 
     return (
         DailyDietRecommendation.objects.filter(pk=rec.pk)
-        .prefetch_related('meals')
+        .prefetch_related('meals__meal_foods__food')
         .get()
     )
 
@@ -381,14 +662,22 @@ def get_or_create_daily_recommendation(
     target_date = target_date or timezone.localdate()
     context = build_client_recommendation_context(client, target_date)
 
+    # Training: one recommendation per day (updates daily)
+    # Diet: one recommendation per 15-day period (same diet for the whole period)
+    diet_date = _diet_period_start(target_date)
+
     training_rec = None
     diet_rec = None
     try:
         training_rec = generate_training_recommendation(client, target_date, context=context)
+    except InsufficientCatalogError:
+        raise
     except Exception as e:
         logger.warning('Failed to generate training recommendation: %s', e, exc_info=True)
     try:
-        diet_rec = generate_diet_recommendation(client, target_date, context=context)
+        diet_rec = generate_diet_recommendation(client, diet_date, context=context)
+    except InsufficientCatalogError:
+        raise
     except Exception as e:
         logger.warning('Failed to generate diet recommendation: %s', e, exc_info=True)
 

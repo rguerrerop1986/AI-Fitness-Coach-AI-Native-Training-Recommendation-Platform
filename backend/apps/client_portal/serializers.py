@@ -2,8 +2,141 @@ from rest_framework import serializers
 from .models import ClientAccessLog
 from apps.clients.models import Client, Measurement
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
-from apps.tracking.models import DailyExerciseRecommendation
+from apps.tracking.models import (
+    DailyExerciseRecommendation,
+    DailyTrainingRecommendation,
+    DailyDietRecommendation,
+    DailyReadinessCheckin,
+)
 from apps.catalogs.models import Exercise
+
+
+# --- Dashboard V2: daily recommendation payload (diet + training) ---
+
+
+class ClientDashboardClientSerializer(serializers.Serializer):
+    """Minimal client info for dashboard; height in cm."""
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    current_weight = serializers.FloatField(allow_null=True)
+    height_cm = serializers.IntegerField(allow_null=True)
+
+
+class DietPlanActiveFoodSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    quantity = serializers.FloatField()
+    unit = serializers.CharField()
+    calories = serializers.IntegerField(allow_null=True)
+
+
+class DietPlanActiveMealSerializer(serializers.Serializer):
+    meal_type = serializers.CharField()
+    title = serializers.CharField()
+    foods = DietPlanActiveFoodSerializer(many=True, default=list)
+
+
+class DietPlanActiveSerializer(serializers.Serializer):
+    """Daily diet recommendation for dashboard card (catalog-based foods)."""
+    title = serializers.CharField()
+    goal = serializers.CharField()
+    coach_message = serializers.CharField()
+    total_calories = serializers.IntegerField(allow_null=True)
+    meals = DietPlanActiveMealSerializer(many=True)
+
+
+class TrainingPlanExerciseSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    sets = serializers.IntegerField()
+    reps = serializers.IntegerField()
+    order = serializers.IntegerField()
+    rest_seconds = serializers.IntegerField(allow_null=True)
+    notes = serializers.CharField(allow_blank=True, default='')
+
+
+class TrainingPlanRecommendedVideoSerializer(serializers.Serializer):
+    title = serializers.CharField()
+    duration_minutes = serializers.IntegerField(allow_null=True)
+
+
+class TrainingPlanActiveSerializer(serializers.Serializer):
+    """Daily training recommendation for dashboard card (catalog-based exercises + training_group)."""
+    recommendation_type = serializers.CharField()
+    training_group = serializers.CharField(allow_blank=True, default='')
+    training_group_label = serializers.CharField(allow_blank=True, default='')
+    modality = serializers.CharField(allow_blank=True, required=False, default='')
+    intensity_level = serializers.IntegerField(allow_null=True, required=False)
+    reasoning_summary = serializers.CharField()
+    coach_message = serializers.CharField()
+    recommended_video = TrainingPlanRecommendedVideoSerializer(allow_null=True)
+    exercises = TrainingPlanExerciseSerializer(many=True)
+
+
+class DailyReadinessCheckinSerializer(serializers.ModelSerializer):
+    """Serializer para readiness diario del cliente (1–10 + flags + comentarios)."""
+
+    class Meta:
+        model = DailyReadinessCheckin
+        fields = [
+            'id',
+            'date',
+            'sleep_quality',
+            'diet_adherence_yesterday',
+            'motivation_today',
+            'energy_level',
+            'stress_level',
+            'muscle_soreness',
+            'readiness_to_train',
+            'mood',
+            'hydration_level',
+            'yesterday_training_intensity',
+            'slept_poorly',
+            'ate_poorly_yesterday',
+            'feels_100_percent',
+            'wants_video_today',
+            'preferred_training_mode',
+            'comments',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        one_to_ten_fields = [
+            'sleep_quality',
+            'diet_adherence_yesterday',
+            'motivation_today',
+            'energy_level',
+            'stress_level',
+            'muscle_soreness',
+            'readiness_to_train',
+            'mood',
+            'hydration_level',
+            'yesterday_training_intensity',
+        ]
+        for f in one_to_ten_fields:
+            v = attrs.get(f)
+            if v is not None and (v < 1 or v > 10):
+                raise serializers.ValidationError({f: 'Debe estar entre 1 y 10.'})
+        return attrs
+
+    def create(self, validated_data):
+        client = self.context.get('client')
+        if client is not None:
+            validated_data['client'] = client
+        return super().create(validated_data)
+
+
+class ClientDashboardV2Serializer(serializers.Serializer):
+    """Dashboard payload with client, today, diet_plan_active, training_plan_active + readiness state."""
+    client = ClientDashboardClientSerializer()
+    today = serializers.DateField()
+    diet_plan_active = DietPlanActiveSerializer(allow_null=True)
+    training_plan_active = TrainingPlanActiveSerializer(allow_null=True)
+    readiness_required = serializers.BooleanField()
+    has_today_readiness = serializers.BooleanField()
+    readiness = DailyReadinessCheckinSerializer(allow_null=True)
+    has_recommendation_today = serializers.BooleanField()
 
 
 class ClientDashboardSerializer(serializers.ModelSerializer):

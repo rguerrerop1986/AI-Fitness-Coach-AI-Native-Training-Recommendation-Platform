@@ -16,14 +16,30 @@ from django.template import Context
 
 from .models import ClientAccessLog
 from .serializers import (
-    ClientDashboardSerializer, DietPlanDetailSerializer, WorkoutPlanDetailSerializer,
-    DailyExerciseRecommendationSerializer, CompleteDailyExerciseSerializer,
+    ClientDashboardSerializer,
+    ClientDashboardV2Serializer,
+    DietPlanDetailSerializer,
+    WorkoutPlanDetailSerializer,
+    DailyExerciseRecommendationSerializer,
+    CompleteDailyExerciseSerializer,
+    DailyReadinessCheckinSerializer,
 )
 from apps.clients.models import Client
 from apps.plans.models import DietPlan, WorkoutPlan, PlanAssignment, PlanCycle
 from apps.plans.serializers import PlanAssignmentSerializer, ClientPlanCycleSerializer
 from apps.common.permissions import IsClient, get_client_from_user
-from apps.tracking.models import DailyExerciseRecommendation, TrainingLog
+from apps.tracking.models import (
+    DailyExerciseRecommendation,
+    TrainingLog,
+    DailyReadinessCheckin,
+    DailyTrainingRecommendation,
+    DailyDietRecommendation,
+)
+from apps.client_portal.services.daily_recommendation_service import (
+    get_or_create_daily_recommendation,
+    InsufficientCatalogError,
+    ensure_training_group,
+)
 from apps.catalogs.models import Exercise
 from apps.recommendations.services.daily_exercise import generate_daily_recommendation
 from apps.recommendations.services.progression import (
@@ -32,22 +48,230 @@ from apps.recommendations.services.progression import (
     get_or_create_progression_state,
 )
 from django.http import FileResponse
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _build_dashboard_v2_payload(client, today, training_rec, diet_rec, readiness=None, readiness_required=False):
+    """Build dashboard V2 payload: client, today, diet_plan_active, training_plan_active, readiness state."""
+    # Current weight: latest measurement or initial_weight_kg; allow null
+    latest = client.measurements.first()
+    current_weight = None
+    if latest and latest.weight_kg is not None:
+        current_weight = float(latest.weight_kg)
+    elif client.initial_weight_kg is not None:
+        current_weight = float(client.initial_weight_kg)
+
+    # Height in cm (backend stores height_m); never break on missing
+    height_cm = None
+    if client.height_m is not None:
+        try:
+            height_cm = int(round(float(client.height_m) * 100))
+        except (TypeError, ValueError):
+            pass
+
+    payload = {
+        'client': {
+            'id': client.id,
+            'name': client.full_name,
+            'current_weight': current_weight,
+            'height_cm': height_cm,
+        },
+        'today': today.isoformat(),
+        'diet_plan_active': None,
+        'training_plan_active': None,
+        'readiness_required': readiness_required,
+        'has_today_readiness': readiness is not None,
+        'readiness': DailyReadinessCheckinSerializer(readiness).data if readiness else None,
+        'has_recommendation_today': bool(training_rec or diet_rec),
+    }
+
+    if diet_rec:
+        meals_list = []
+        for m in sorted(diet_rec.meals.all(), key=lambda x: x.order):
+            foods_list = []
+            meal_foods_q = getattr(m, 'meal_foods', None)
+            meal_foods_list = sorted(meal_foods_q.all(), key=lambda x: x.order) if meal_foods_q else []
+            for mf in meal_foods_list:
+                f = mf.food
+                qty = float(mf.quantity) if mf.quantity else 1
+                unit = mf.unit or 'g'
+                calories = None
+                if getattr(f, 'calories_kcal', None) is not None and getattr(f, 'serving_size', None):
+                    try:
+                        calories = int(float(f.calories_kcal or 0) * float(qty) / 100)
+                    except (TypeError, ValueError):
+                        pass
+                if calories is None and getattr(f, 'kcal', None) is not None and getattr(f, 'serving_size', None):
+                    try:
+                        calories = int(float(f.kcal or 0) * float(qty) / float(f.serving_size))
+                    except (TypeError, ValueError, ZeroDivisionError):
+                        pass
+                foods_list.append({
+                    'id': f.id,
+                    'name': f.name,
+                    'quantity': qty,
+                    'unit': unit,
+                    'calories': calories,
+                })
+            meals_list.append({
+                'meal_type': m.meal_type,
+                'title': m.title or m.get_meal_type_display(),
+                'foods': foods_list,
+            })
+        payload['diet_plan_active'] = {
+            'title': diet_rec.title or 'Plan diario personalizado',
+            'goal': diet_rec.goal or 'Mantenimiento',
+            'coach_message': diet_rec.coach_message or '',
+            'total_calories': diet_rec.total_calories,
+            'meals': meals_list,
+        }
+
+    if training_rec:
+        # Backwards compatibility: derive training_group when falta en registros antiguos
+        training_rec = ensure_training_group(training_rec)
+        video_data = None
+        if training_rec.recommended_video:
+            v = training_rec.recommended_video
+            video_data = {
+                'title': v.name,
+                'duration_minutes': v.duration_minutes,
+            }
+        ordered_exercises = sorted(training_rec.exercises.all(), key=lambda e: e.order)
+        exercises_data = [
+            {
+                'name': e.exercise.name,
+                'sets': e.sets,
+                'reps': e.reps,
+                'order': e.order,
+                'rest_seconds': e.rest_seconds,
+                'notes': e.notes or '',
+            }
+            for e in ordered_exercises
+        ]
+        training_group = getattr(training_rec, 'training_group', '') or ''
+        training_group_label = (
+            training_rec.get_training_group_display()
+            if training_group and hasattr(training_rec, 'get_training_group_display')
+            else ''
+        )
+        payload['training_plan_active'] = {
+            'recommendation_type': training_rec.recommendation_type,
+            'training_group': training_group,
+            'training_group_label': training_group_label,
+            'modality': getattr(training_rec, 'modality', '') or '',
+            'intensity_level': getattr(training_rec, 'intensity_level', None),
+            'reasoning_summary': training_rec.reasoning_summary or '',
+            'coach_message': training_rec.coach_message or '',
+            'recommended_video': video_data,
+            'exercises': exercises_data,
+        }
+
+    return payload
 
 
 class ClientDashboardView(APIView):
-    """Client dashboard endpoint."""
+    """Client dashboard. GET: Caso A sin check-in -> readiness_required; B/C con check-in -> recomendación IA o existente."""
     permission_classes = [IsAuthenticated, IsClient]
-    
+
     def get(self, request):
-        # Get client from user with guardrails
         client = get_client_from_user(request.user)
         if not client:
-            return Response({
-                'error': 'Client profile not found. Please contact your coach.'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = ClientDashboardSerializer(client)
-        return Response(serializer.data)
+            return Response(
+                {'error': 'Client profile not found. Please contact your coach.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        today = timezone.localdate()
+        readiness = DailyReadinessCheckin.objects.filter(client=client, date=today).first()
+
+        # Caso A: no hay check-in del día -> no generar recomendación aún
+        if not readiness:
+            training_rec = DailyTrainingRecommendation.objects.filter(client=client, date=today).first()
+            diet_rec = DailyDietRecommendation.objects.filter(client=client, date=today).first()
+            payload = _build_dashboard_v2_payload(
+                client, today, training_rec, diet_rec,
+                readiness=None,
+                readiness_required=True,
+            )
+            serializer = ClientDashboardV2Serializer(data=payload)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.validated_data)
+
+        # Caso B/C: hay check-in -> si no hay recomendación, generar con IA
+        training_rec = DailyTrainingRecommendation.objects.filter(client=client, date=today).first()
+        diet_rec = DailyDietRecommendation.objects.filter(client=client, date=today).first()
+
+        if not training_rec and not diet_rec:
+            try:
+                from apps.client_portal.services.ai_daily_plan import generate_ai_daily_plan
+                training_rec, diet_rec = generate_ai_daily_plan(client, readiness, target_date=today)
+            except Exception as e:
+                logger.warning("Failed to generate AI daily plan: %s", e, exc_info=True)
+            if not training_rec and not diet_rec:
+                try:
+                    training_rec, diet_rec = get_or_create_daily_recommendation(client, target_date=today)
+                except InsufficientCatalogError as e:
+                    return Response(
+                        {
+                            'error': 'insufficient_catalog',
+                            'detail': str(e),
+                            'catalog': e.catalog,
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+
+        payload = _build_dashboard_v2_payload(
+            client, today, training_rec, diet_rec,
+            readiness=readiness,
+            readiness_required=False,
+        )
+        serializer = ClientDashboardV2Serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data)
+
+
+class ClientReadinessTodayView(APIView):
+    """GET/POST /api/client/readiness/today/ — get or create/update today's readiness check-in."""
+    permission_classes = [IsAuthenticated, IsClient]
+
+    def get(self, request):
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found. Please contact your coach.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        today = timezone.localdate()
+        readiness = DailyReadinessCheckin.objects.filter(client=client, date=today).first()
+        data = {
+            'today': today.isoformat(),
+            'has_today_readiness': readiness is not None,
+            'readiness': DailyReadinessCheckinSerializer(readiness).data if readiness else None,
+        }
+        return Response(data)
+
+    def post(self, request):
+        client = get_client_from_user(request.user)
+        if not client:
+            return Response(
+                {'error': 'Client profile not found. Please contact your coach.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        today = timezone.localdate()
+        body = dict(request.data or {})
+        body['date'] = today
+        existing = DailyReadinessCheckin.objects.filter(client=client, date=today).first()
+        serializer = DailyReadinessCheckinSerializer(
+            existing,
+            data=body,
+            partial=bool(existing),
+            context={'client': client},
+        )
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return Response(DailyReadinessCheckinSerializer(instance).data, status=status.HTTP_200_OK)
 
 
 class ClientCurrentPlanView(APIView):

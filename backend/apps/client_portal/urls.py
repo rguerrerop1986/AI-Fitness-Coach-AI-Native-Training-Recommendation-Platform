@@ -4,8 +4,13 @@ from apps.plans.views import ClientCurrentCycleView
 from apps.appointments.views import ClientAppointmentView
 from apps.tracking.views import ClientTrainingLogMeView, ClientDietLogMeView
 from .views import (
-    ClientDashboardView, ClientPlanViewSet, ClientCurrentPlanView, ClientPlanPDFView,
-    ClientDailyExerciseView, ClientDailyExerciseCompleteView,
+    ClientDashboardView,
+    ClientReadinessTodayView,
+    ClientPlanViewSet,
+    ClientCurrentPlanView,
+    ClientPlanPDFView,
+    ClientDailyExerciseView,
+    ClientDailyExerciseCompleteView,
 )
 
 router = DefaultRouter()
@@ -14,6 +19,7 @@ router.register(r'plans', ClientPlanViewSet, basename='client-plan')
 urlpatterns = [
     # Client portal endpoints (auth is handled by unified /api/auth/token/client/)
     path('dashboard/', ClientDashboardView.as_view(), name='client-dashboard'),
+    path('readiness/today/', ClientReadinessTodayView.as_view(), name='client-readiness-today'),
     path('current-cycle/', ClientCurrentCycleView.as_view(), name='client-current-cycle'),
     path('current-plan/', ClientCurrentPlanView.as_view(), name='client-current-plan'),
     path('current-plan/pdf/', ClientPlanPDFView.as_view(), name='client-plan-pdf'),
