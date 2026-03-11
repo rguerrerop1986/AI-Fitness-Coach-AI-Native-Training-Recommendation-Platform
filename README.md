@@ -1,14 +1,21 @@
 # AI Fitness Coach – AI-Native Training Recommendation Platform
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![AI / LLM](https://img.shields.io/badge/AI-LLM%20System-green.svg)]()
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+
+---
+
 AI-powered coaching platform that generates **adaptive workout and nutrition recommendations** using Large Language Models (LLMs), contextual user data, and historical training signals.
 
-The system combines **user state modeling, contextual prompts, memory, and retrieval-based knowledge** to generate personalized daily training recommendations.
+The system combines **LLM reasoning**, **contextual prompts**, a **memory layer**, a **recommendation engine**, **retrieval-based training knowledge**, and an **evaluation layer** to generate personalized daily training and nutrition plans.
 
 This project demonstrates how modern AI systems can integrate **data pipelines, LLM reasoning, and intelligent orchestration** to build adaptive fitness applications.
 
 ---
 
-## Overview
+## Project Overview
 
 Traditional fitness programs rely on static training plans. The AI Fitness Coach replaces this approach with a **dynamic AI-driven recommendation engine**.
 
@@ -271,6 +278,22 @@ Recommendation Engine
 LLM Service
        ↓
 PostgreSQL Database
+```
+
+---
+
+## Repository Structure
+
+```
+├── README.md
+├── LICENSE
+├── .gitignore
+├── docs/
+│   ├── ai-architecture.png    # Architecture diagram
+│   └── ai-architecture.md     # Architecture documentation
+├── backend/                    # Django API + AI recommendation engine
+├── frontend/                   # React client portal & coach dashboard
+└── docker-compose.yml
 ```
 
 ---

@@ -1,6 +1,22 @@
 """
-AI-powered daily plan: build context from readiness + history + catalog, call OpenAI,
-validate response (only catalog IDs), persist DailyDietRecommendation + DailyTrainingRecommendation.
+AI-powered daily plan service for the client dashboard.
+
+This module implements the full recommendation pipeline for contextual daily diet and
+training plans:
+
+  - Context construction: Aggregates client profile, daily readiness check-in, recent
+    history (training recommendations, check-ins, logs), and allowed catalogs (foods,
+    exercises, videos) into a structured payload for the LLM.
+  - Prompt engineering: Builds a system prompt that enforces catalog-only selection
+    (no invented foods or exercises), allowed training_group and modality enums, and
+    recovery-aware logic (e.g., low readiness → recovery/active_recovery).
+  - LLM reasoning: Sends the context to OpenAI and parses JSON output for diet_plan
+    and training_plan (meals with food_id, exercises with exercise_id, optional
+    recommended_video_exercise_id).
+  - Evaluation and persistence: Validates all IDs against the database, filters
+    invalid entries, then persists DailyDietRecommendation (with meals and meal_foods)
+    and DailyTrainingRecommendation (with exercises or video). Ensures production-safe,
+    catalog-only recommendations.
 """
 import json
 import logging
@@ -39,7 +55,14 @@ def _build_ai_context(
     readiness: DailyReadinessCheckin,
     target_date: date,
 ) -> Dict[str, Any]:
-    """Build user payload matching the coach prompt template: client, today_checkin, recent_history, allowed_foods, allowed_exercises."""
+    """
+    Build the structured context payload for the LLM (Context Builder + Memory Layer).
+
+    Assembles client demographics and metrics, today's readiness check-in, recent
+    training recommendations and check-ins, and the allowed food/exercise catalogs
+    (including videos as type="video"). This contextual data is the only input the
+    model may use to select food_id and exercise_id values.
+    """
     ctx = build_client_recommendation_context(client, target_date)
 
     latest = client.measurements.first()

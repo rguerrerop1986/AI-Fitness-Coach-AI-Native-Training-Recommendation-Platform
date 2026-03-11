@@ -1,5 +1,21 @@
 """
-OpenAI-based coach: given structured context and candidate exercises, returns one recommendation as JSON.
+OpenAI-based coach service for LLM-driven exercise recommendation.
+
+This module provides the LLM Reasoning Layer for single-exercise or candidate-selection
+workflows:
+
+  - Prompt construction: Builds a system prompt that constrains the model to choose
+    exactly one exercise from the provided candidate list (by id), prioritizes safety
+    (e.g., pain or fatigue → lighter option), and requires valid JSON output with
+    recommended_exercise_id, recommendation_type, reasoning_summary, warnings, and
+    coach_message.
+  - Contextual data usage: The user message contains structured context (user state,
+    recent logs, preferences) and the list of candidate exercise IDs. The model uses
+    this context to align the recommendation with recovery and adherence.
+  - Response handling: Parses JSON from the completion (strips markdown code blocks
+    if present), validates that the returned id is in the candidate set, and falls
+    back to a safe default (e.g., first candidate, moderate type) on parse or API
+    failure.
 """
 import json
 import logging
@@ -24,9 +40,14 @@ def recommend_workout_from_candidates(
     candidates: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Call OpenAI to pick one exercise from the candidate list using structured context.
-    Returns dict with: recommended_exercise_id, recommendation_type, reasoning_summary, warnings, coach_message.
-    candidates: list of dicts with at least "id", "name", "muscle_group", "difficulty", "intensity", "tags".
+    Call the LLM to select one exercise from the candidate list using structured context.
+
+    Recommendation logic: The model is instructed to choose only from the given
+    candidate IDs, to prefer safer/lighter options when the user reports pain, poor
+    sleep, or high fatigue, and to consider recent training logs to avoid repetition.
+    Returns a dict with recommended_exercise_id, recommendation_type, reasoning_summary,
+    warnings, and coach_message. candidates must include at least "id", "name",
+    "muscle_group", "difficulty", "intensity", and "tags".
     """
     client = get_openai_client()
     candidate_ids = [c["id"] for c in candidates]

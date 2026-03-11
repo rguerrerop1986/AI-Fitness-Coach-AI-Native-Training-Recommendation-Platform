@@ -1,8 +1,21 @@
 """
-Daily recommendation service: get-or-create training and diet recommendations for the client dashboard.
-Idempotent per (client, date). Uses catalog exercises/videos and client context (checkins, logs, plan).
-Diet: built strictly from catalog Food (or from active DietPlan meal items when present).
-Training: built strictly from catalog Exercise; training_group derived and persisted.
+Daily recommendation service: rule-based get-or-create for training and diet (fallback path).
+
+This module provides the non-LLM recommendation path used when the AI daily plan is
+unavailable or returns no valid output. It is idempotent per (client, date).
+
+  - Recommendation logic: Uses client context (check-ins, training logs, previous
+    recommendations, active plan) to derive readiness, fatigue, and yesterday's
+    training type. Applies heuristic rules (e.g., high pain/fatigue → recovery;
+    low energy → mobility) to choose recommendation_type and intensity, then
+    selects exercises or videos from the catalog only.
+  - Contextual data usage: build_client_recommendation_context() aggregates
+    check-ins, training logs, recent daily recommendations, active plan cycle,
+    and catalog counts. This context drives both the rule-based logic here and
+    the AI context builder in ai_daily_plan.
+  - Diet: Built strictly from catalog Food or from active DietPlan meal items.
+  - Training: Built strictly from catalog Exercise (and TrainingVideo); training_group
+    and modality are derived and persisted. No free-text or invented exercises.
 """
 import logging
 from datetime import date, timedelta
@@ -65,9 +78,13 @@ def build_client_recommendation_context(
     target_date: date,
 ) -> dict[str, Any]:
     """
-    Build a context dict with everything needed to personalize today's recommendation.
-    Includes: checkins, readiness/fatigue, feedbacks, recent recommendations, training logs,
-    active plan, constraints, and available catalog (exercises, videos).
+    Build the shared context package for recommendation logic (Context Builder).
+
+    Aggregates: recent check-ins (tracking.CheckIn), training logs, previous daily
+    recommendations (training + diet), yesterday's training, active plan cycle and
+    diet/workout plans, and catalog counts (exercises, videos, foods). Used by both
+    the rule-based daily_recommendation_service and the AI daily plan context builder
+    to ensure consistent contextual data for personalization.
     """
     day_before = target_date - timedelta(days=1)
     week_start = target_date - timedelta(days=14)
