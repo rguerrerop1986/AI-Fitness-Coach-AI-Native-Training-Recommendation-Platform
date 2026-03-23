@@ -75,7 +75,7 @@ interface TrainingPlanActive {
   exercises: TrainingExercise[]
 }
 
-/** Readiness check-in (today) from API or form state */
+/** Readiness check-in (today) from API or form state — matches DailyReadinessCheckin from backend */
 export interface ReadinessFormData {
   sleep_quality?: number | null
   diet_adherence_yesterday?: number | null
@@ -93,6 +93,25 @@ export interface ReadinessFormData {
   wants_video_today?: boolean
   preferred_training_mode?: 'insanity' | 'hybrid' | 'gym_strength' | 'mobility_recovery' | 'auto'
   comments?: string
+}
+
+const DEFAULT_READINESS_FORM: ReadinessFormData = {
+  sleep_quality: 7,
+  diet_adherence_yesterday: 7,
+  motivation_today: 7,
+  energy_level: 7,
+  stress_level: 5,
+  muscle_soreness: 3,
+  readiness_to_train: 7,
+  mood: 7,
+  hydration_level: 7,
+  yesterday_training_intensity: 5,
+  slept_poorly: false,
+  ate_poorly_yesterday: false,
+  feels_100_percent: false,
+  wants_video_today: false,
+  preferred_training_mode: 'auto',
+  comments: '',
 }
 
 export interface DashboardData {
@@ -114,25 +133,37 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submittingReadiness, setSubmittingReadiness] = useState(false)
-  const [readinessForm, setReadinessForm] = useState<ReadinessFormData>({
-    sleep_quality: 7,
-    diet_adherence_yesterday: 7,
-    motivation_today: 7,
-    energy_level: 7,
-    stress_level: 5,
-    muscle_soreness: 3,
-    readiness_to_train: 7,
-    mood: 7,
-    hydration_level: 7,
-    yesterday_training_intensity: 5,
-    slept_poorly: false,
-    ate_poorly_yesterday: false,
-    feels_100_percent: false,
-    wants_video_today: false,
-    preferred_training_mode: 'auto',
-    comments: '',
-  })
+  const [readinessForm, setReadinessForm] = useState<ReadinessFormData>(DEFAULT_READINESS_FORM)
   const navigate = useNavigate()
+
+  /** Build form state from dashboard: client + today's readiness from API (DailyReadinessCheckin) or defaults */
+  useEffect(() => {
+    if (!dashboard) return
+    const fromApi = dashboard.readiness
+    if (fromApi) {
+      setReadinessForm({
+        ...DEFAULT_READINESS_FORM,
+        sleep_quality: fromApi.sleep_quality ?? DEFAULT_READINESS_FORM.sleep_quality,
+        diet_adherence_yesterday: fromApi.diet_adherence_yesterday ?? DEFAULT_READINESS_FORM.diet_adherence_yesterday,
+        motivation_today: fromApi.motivation_today ?? DEFAULT_READINESS_FORM.motivation_today,
+        energy_level: fromApi.energy_level ?? DEFAULT_READINESS_FORM.energy_level,
+        stress_level: fromApi.stress_level ?? DEFAULT_READINESS_FORM.stress_level,
+        muscle_soreness: fromApi.muscle_soreness ?? DEFAULT_READINESS_FORM.muscle_soreness,
+        readiness_to_train: fromApi.readiness_to_train ?? DEFAULT_READINESS_FORM.readiness_to_train,
+        mood: fromApi.mood ?? DEFAULT_READINESS_FORM.mood,
+        hydration_level: fromApi.hydration_level ?? DEFAULT_READINESS_FORM.hydration_level,
+        yesterday_training_intensity: fromApi.yesterday_training_intensity ?? DEFAULT_READINESS_FORM.yesterday_training_intensity,
+        slept_poorly: fromApi.slept_poorly ?? DEFAULT_READINESS_FORM.slept_poorly,
+        ate_poorly_yesterday: fromApi.ate_poorly_yesterday ?? DEFAULT_READINESS_FORM.ate_poorly_yesterday,
+        feels_100_percent: fromApi.feels_100_percent ?? DEFAULT_READINESS_FORM.feels_100_percent,
+        wants_video_today: fromApi.wants_video_today ?? DEFAULT_READINESS_FORM.wants_video_today,
+        preferred_training_mode: (fromApi.preferred_training_mode as ReadinessFormData['preferred_training_mode']) ?? DEFAULT_READINESS_FORM.preferred_training_mode,
+        comments: fromApi.comments ?? DEFAULT_READINESS_FORM.comments,
+      })
+    } else {
+      setReadinessForm({ ...DEFAULT_READINESS_FORM })
+    }
+  }, [dashboard])
 
   const fetchClientData = useCallback(async () => {
     setError('')

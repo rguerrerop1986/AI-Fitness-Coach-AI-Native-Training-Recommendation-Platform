@@ -6,6 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from apps.training.views import DailyCheckInDailyUpsertView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -17,6 +18,7 @@ urlpatterns = [
     path('api/plans/', include('apps.plans.urls')),
     path('api/tracking/', include('apps.tracking.urls')),
     path('api/training/', include('apps.training.urls')),
+    path('api/checkins/daily/', DailyCheckInDailyUpsertView.as_view(), name='checkins-daily-upsert'),
     path('api/internal/', include('apps.internal_api.urls')),
     path('api/', include('apps.appointments.urls')),
     path('api/client/', include('apps.client_portal.urls')),

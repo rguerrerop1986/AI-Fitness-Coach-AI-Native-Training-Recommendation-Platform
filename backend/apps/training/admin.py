@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import TrainingVideo, DailyCheckIn, WorkoutLog, TrainingRecommendation, TrainingRecommendationExercise
+from .models import (
+    CompletedWorkout,
+    DailyCheckIn,
+    TrainingRecommendation,
+    TrainingRecommendationExercise,
+    TrainingVideo,
+    WorkoutLog,
+)
 
 
 @admin.register(TrainingVideo)
@@ -24,12 +31,27 @@ class WorkoutLogAdmin(admin.ModelAdmin):
 
 @admin.register(TrainingRecommendation)
 class TrainingRecommendationAdmin(admin.ModelAdmin):
-    list_display = ["user", "date", "recommended_exercise", "recommended_video", "recommendation_type", "readiness_score", "created_at"]
+    list_display = [
+        "user",
+        "date",
+        "recommendation_type",
+        "intensity_level",
+        "duration_minutes",
+        "readiness_score",
+        "created_at",
+    ]
     list_filter = ["date", "recommendation_type"]
-    raw_id_fields = ["user", "recommended_exercise", "recommended_video"]
+    raw_id_fields = ["user", "checkin", "recommended_exercise", "recommended_video"]
 
 
 @admin.register(TrainingRecommendationExercise)
 class TrainingRecommendationExerciseAdmin(admin.ModelAdmin):
     list_display = ["recommendation", "exercise", "sets", "reps", "rest_seconds", "position"]
     raw_id_fields = ["recommendation", "exercise"]
+
+
+@admin.register(CompletedWorkout)
+class CompletedWorkoutAdmin(admin.ModelAdmin):
+    list_display = ["user", "date", "workout_type", "completed", "perceived_exertion", "created_at"]
+    list_filter = ["date", "completed", "workout_type"]
+    raw_id_fields = ["user", "recommendation"]

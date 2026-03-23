@@ -95,11 +95,14 @@ def _build_ai_context(
         "weight_kg": weight_kg,
     }
 
+    energy = readiness.energy_level
+    fatigue = (10 - energy) if energy is not None else None
     today_checkin = {
         "sleep_quality": readiness.sleep_quality,
         "diet_adherence_yesterday": readiness.diet_adherence_yesterday,
         "motivation_today": readiness.motivation_today,
-        "energy_level": readiness.energy_level,
+        "energy_level": energy,
+        "fatigue": fatigue,
         "stress_level": readiness.stress_level,
         "muscle_soreness": readiness.muscle_soreness,
         "readiness_to_train": readiness.readiness_to_train,
@@ -167,66 +170,80 @@ def _build_ai_context(
             "id": v.id,
             "name": v.name,
             "type": "video",
+            "program": getattr(v, "program", "") or "Insanity",
+            "difficulty": getattr(v, "difficulty", "") or "medium",
+            "duration_minutes": getattr(v, "duration_minutes", None),
             "muscle_group": getattr(v, "category", "") or "cardio",
         })
 
+    # Fitness goal from active plan cycle
+    fitness_goal = "General fitness"
+    active_cycle = ctx.get("active_cycle")
+    if active_cycle:
+        if getattr(active_cycle, "diet_plan", None):
+            fitness_goal = getattr(active_cycle.diet_plan, "goal", None) or fitness_goal
+        elif getattr(active_cycle, "workout_plan", None):
+            fitness_goal = getattr(active_cycle.workout_plan, "goal", None) or fitness_goal
+
     return {
         "client": client_payload,
+        "fitness_goal": fitness_goal,
+        "training_preference": today_checkin.get("preferred_training_mode") or "auto",
         "today_checkin": today_checkin,
         "recent_history": recent_history,
         "allowed_foods": allowed_foods,
         "allowed_exercises": allowed_exercises,
+        "target_date": target_date.isoformat(),
     }
 
 
-_SYSTEM_PROMPT = """Eres un coach experto en entrenamiento y nutrición personalizada.
-Tu tarea es generar un plan diario de dieta y entrenamiento estrictamente a partir del contexto del usuario y de catálogos permitidos.
+_SYSTEM_PROMPT = """You are an AI Fitness Coach responsible for generating a personalized daily fitness and nutrition plan.
 
-Reglas obligatorias:
-1. Solo puedes seleccionar alimentos usando food_id de la lista permitida (allowed_foods).
-2. Solo puedes seleccionar ejercicios usando exercise_id de la lista permitida (allowed_exercises con type "exercise"); para video usa el id de un ítem con type "video" en recommended_video_exercise_id.
-3. No inventes alimentos ni ejercicios.
-4. Ajusta la intensidad del entrenamiento según recuperación, sueño, energía, motivación, adherencia dietaria y carga previa.
-5. Si el usuario no está en buen estado, prioriza recuperación activa, movilidad o menor intensidad.
-6. Si el usuario está en muy buen estado, puedes recomendar fuerza, híbrido o video tipo Insanity según preferencias y contexto.
-7. Devuelve únicamente JSON válido, sin texto antes ni después.
-8. El campo training_group debe ser uno de: upper_body, lower_body, core, full_body, insanity, active_recovery
-9. El campo modality debe ser uno de: insanity, hybrid, gym_strength, mobility_recovery, auto
-10. El plan debe ser realista, seguro y coherente con el estado actual del usuario.
+You must analyze the user's physiological state, recent training history, and preferences to determine the optimal training session and diet for TODAY.
 
-Formato de respuesta (JSON exacto):
+IMPORTANT RULES:
+
+1. You MUST only use exercises and videos from the provided catalogs (allowed_exercises). Use food_id only from allowed_foods.
+2. NEVER invent exercises, workouts, or foods that are not in the catalog.
+3. Respect the user's preferred training style when possible (e.g. preferred_training_mode: insanity → prioritize an Insanity video when readiness allows).
+4. If the user reports low energy, poor sleep (low sleep_quality), or high fatigue, reduce intensity and consider recovery training (recommendation_type: recovery, training_group: active_recovery).
+5. Avoid recommending the same workout type on consecutive days unless readiness is high; use recent_history.last_recommendations to check.
+6. If the user explicitly asks for Insanity training (wants_video_today or preferred_training_mode insanity) and readiness allows it, prioritize recommending an Insanity video (use recommended_video_exercise_id with id of an item where type is "video" and program is "Insanity").
+7. Hydration and protein distribution should always be considered in the diet plan (coach_message can mention this).
+
+Output: Return STRICT JSON only. No text before or after.
+
+Schema:
+- recommendation_type must be one of: strength, recovery, mobility, cardio, core, hiit, full_body, rest_day
+- training_group must be one of: upper_body, lower_body, core, full_body, insanity, active_recovery
+- modality must be one of: insanity, hybrid, gym_strength, mobility_recovery, auto
+- recommended_video_exercise_id: id of an item with type "video" in allowed_exercises, or null
+- exercises: list of { "exercise_id": <id>, "sets": N, "reps": N, "rest_seconds": N } using only ids with type "exercise"
+- meal_type: breakfast | lunch | dinner | snack | pre_workout | post_workout
 
 {
   "diet_plan": {
     "title": "Plan diario personalizado",
     "goal": "Mantenimiento",
     "total_calories": 1700,
-    "coach_message": "Mensaje breve para el usuario.",
+    "coach_message": "Brief message (hydration, protein distribution).",
     "meals": [
-      {
-        "meal_type": "breakfast",
-        "foods": [
-          { "food_id": 1, "quantity": 2, "unit": "pieza" }
-        ]
-      }
+      { "meal_type": "breakfast", "foods": [ { "food_id": 1, "quantity": 2, "unit": "pieza" } ] },
+      { "meal_type": "lunch", "foods": [ ] },
+      { "meal_type": "dinner", "foods": [ ] }
     ]
   },
   "training_plan": {
     "recommendation_type": "recovery",
     "training_group": "active_recovery",
-    "modality": "hybrid",
+    "modality": "auto",
     "intensity_level": 3,
-    "coach_message": "Mensaje breve para el usuario.",
-    "reasoning_summary": "Resumen del razonamiento.",
+    "coach_message": "Brief motivational message.",
+    "reasoning_summary": "Why this plan was chosen.",
     "recommended_video_exercise_id": null,
     "exercises": []
   }
 }
-
-- meal_type: breakfast | lunch | dinner | snack | pre_workout | post_workout
-- recommendation_type: recovery | strength | mobility | cardio | core | hiit | full_body | rest_day
-- recommended_video_exercise_id: id de un ítem con type "video" en allowed_exercises, o null
-- exercises: lista de { "exercise_id": <id>, "sets": N, "reps": N, "rest_seconds": N } usando solo ids con type "exercise"
 """
 
 

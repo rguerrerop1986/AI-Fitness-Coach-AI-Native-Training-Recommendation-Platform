@@ -11,13 +11,20 @@ from rest_framework.generics import ListCreateAPIView
 
 from .models import DailyCheckIn, WorkoutLog
 from .serializers import (
+    CompletedWorkoutSerializer,
     DailyCheckInSerializer,
     DailyCheckInCreateSerializer,
+    DailyCheckInUpsertSerializer,
+    GenerateRecommendationRequestSerializer,
+    TrainingRecommendationSerializer,
     WorkoutLogSerializer,
     WorkoutLogCreateSerializer,
     GenerateRecommendationInputSerializer,
     WorkoutFeedbackAnalyzeInputSerializer,
 )
+from .models import CompletedWorkout, TrainingRecommendation
+from .services.adaptive_recommendation_service import AdaptiveRecommendationService
+from .services.readiness_service import ReadinessService
 from .services.recommendation_service import generate_recommendation
 from .services.feedback_analysis import analyze_workout_feedback
 
@@ -167,3 +174,108 @@ class WorkoutFeedbackAnalyzeView(APIView):
                 emotional_feedback=data.get("emotional_feedback") or "",
             )
         return Response(result, status=status.HTTP_200_OK)
+
+
+class DailyCheckInDailyUpsertView(APIView):
+    """POST /api/checkins/daily/ - create or update today's check-in."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DailyCheckInUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        checkin, created = DailyCheckIn.objects.update_or_create(
+            user=request.user,
+            date=serializer.validated_data["date"],
+            defaults=serializer.validated_data,
+        )
+        return Response(
+            DailyCheckInSerializer(checkin).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class GenerateAdaptiveRecommendationView(APIView):
+    """POST /api/training/recommendations/generate/ - deterministic adaptive recommendation."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = GenerateRecommendationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_date = serializer.validated_data.get("date") or request.query_params.get("date")
+        if not target_date:
+            from django.utils import timezone
+
+            target_date = timezone.localdate()
+        if isinstance(target_date, str):
+            from datetime import date as date_cls
+
+            target_date = date_cls.fromisoformat(target_date)
+        regenerate = serializer.validated_data.get("regenerate", True)
+        service = AdaptiveRecommendationService()
+        recommendation, generated = service.generate_for_date(
+            request.user,
+            target_date=target_date,
+            regenerate=regenerate,
+        )
+        data = TrainingRecommendationSerializer(recommendation).data
+        data["generation_policy"] = "regenerated" if generated else "returned_existing"
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class TodayRecommendationView(APIView):
+    """GET /api/training/recommendations/today/."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.utils import timezone
+
+        recommendation = TrainingRecommendation.objects.filter(
+            user=request.user,
+            date=timezone.localdate(),
+        ).first()
+        if not recommendation:
+            return Response({"detail": "No recommendation for today."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(TrainingRecommendationSerializer(recommendation).data, status=status.HTTP_200_OK)
+
+
+class RecommendationHistoryView(ListCreateAPIView):
+    """GET /api/training/recommendations/history/ - paginated history."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = TrainingRecommendationSerializer
+
+    def get_queryset(self):
+        return TrainingRecommendation.objects.filter(user=self.request.user).order_by("-date", "-created_at")
+
+    def create(self, request, *args, **kwargs):
+        return Response({"detail": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class CompleteWorkoutView(APIView):
+    """POST /api/training/workouts/complete/."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = CompletedWorkoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        workout = serializer.save(user=request.user)
+        return Response(CompletedWorkoutSerializer(workout).data, status=status.HTTP_201_CREATED)
+
+
+class TodayReadinessView(APIView):
+    """GET /api/training/readiness/today/ - readiness analysis without persistence."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.utils import timezone
+
+        checkin = DailyCheckIn.objects.filter(user=request.user, date=timezone.localdate()).first()
+        if not checkin:
+            return Response({"detail": "No daily check-in for today."}, status=status.HTTP_404_NOT_FOUND)
+        analysis = ReadinessService().analyze(checkin)
+        return Response(analysis.asdict(), status=status.HTTP_200_OK)

@@ -2,8 +2,9 @@
 Serializers for training module: check-ins, workout logs, recommendations, feedback.
 """
 from rest_framework import serializers
+from django.utils import timezone
 
-from .models import DailyCheckIn, TrainingRecommendation, TrainingVideo, WorkoutLog
+from .models import CompletedWorkout, DailyCheckIn, TrainingRecommendation, TrainingVideo, WorkoutLog
 
 
 class TrainingVideoListSerializer(serializers.ModelSerializer):
@@ -328,3 +329,96 @@ class WorkoutFeedbackAnalyzeInputSerializer(serializers.Serializer):
                 "Either workout_log_id or video_name must be provided."
             )
         return attrs
+
+
+class DailyCheckInUpsertSerializer(serializers.ModelSerializer):
+    """Serializer for production daily readiness check-in endpoint."""
+
+    class Meta:
+        model = DailyCheckIn
+        fields = [
+            "date",
+            "sleep_quality",
+            "energy_level",
+            "motivation_level",
+            "muscle_soreness",
+            "stress_level",
+            "diet_adherence_yesterday",
+            "hydration_level",
+            "recovery_feeling",
+            "mental_clarity",
+            "workout_desire",
+            "had_alcohol_yesterday",
+            "feels_pain_or_injury",
+            "wants_insanity_today",
+            "wants_strength_today",
+            "wants_recovery_today",
+            "notes",
+        ]
+
+    def validate_date(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError("Check-in date cannot be in the future.")
+        return value
+
+    def validate(self, attrs):
+        scale_fields = [
+            "sleep_quality",
+            "energy_level",
+            "motivation_level",
+            "muscle_soreness",
+            "stress_level",
+            "diet_adherence_yesterday",
+            "hydration_level",
+            "recovery_feeling",
+            "mental_clarity",
+            "workout_desire",
+        ]
+        for field in scale_fields:
+            value = attrs.get(field)
+            if value is not None and not (1 <= value <= 10):
+                raise serializers.ValidationError({field: "Must be between 1 and 10."})
+        return attrs
+
+
+class GenerateRecommendationRequestSerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+    regenerate = serializers.BooleanField(required=False, default=True)
+
+
+class TrainingRecommendationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingRecommendation
+        fields = [
+            "id",
+            "date",
+            "checkin",
+            "recommendation_type",
+            "readiness_score",
+            "reasoning_summary",
+            "coach_message",
+            "warnings",
+            "intensity_level",
+            "duration_minutes",
+            "recommended_video",
+            "metadata",
+            "created_at",
+        ]
+
+
+class CompletedWorkoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompletedWorkout
+        fields = [
+            "id",
+            "recommendation",
+            "date",
+            "workout_type",
+            "perceived_exertion",
+            "energy_after",
+            "satisfaction",
+            "completed",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]

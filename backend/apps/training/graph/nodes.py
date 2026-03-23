@@ -614,7 +614,7 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
                 "recommendation_type": plan.get("recommendation_type") or "moderate",
                 "reasoning_summary": plan.get("reasoning_summary") or "",
                 "coach_message": plan.get("coach_message") or "",
-                "warnings": "\n".join(state.get("warnings") or []),
+                "warnings": list(state.get("warnings") or []),
                 "readiness_score": state.get("readiness_score"),
                 "metadata": metadata,
                 "rule_based_payload": {"readiness_flags": state.get("readiness_flags") or []},
@@ -652,7 +652,7 @@ def persist_recommendation(state: RecommendationState) -> RecommendationState:
             position += 1
 
         if persistence_warnings:
-            rec.warnings = (rec.warnings or "") + "\n" + "\n".join(persistence_warnings)
+            rec.warnings = list((rec.warnings or []) + persistence_warnings)
             rec.save(update_fields=["warnings"])
 
     state_warnings = (state.get("warnings") or []) + persistence_warnings

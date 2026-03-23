@@ -86,6 +86,41 @@ class DailyCheckIn(models.Model):
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(10)],
     )
+    stress_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    muscle_soreness = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    diet_adherence_yesterday = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    hydration_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    recovery_feeling = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    mental_clarity = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    workout_desire = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
     mood = models.CharField(max_length=100, blank=True)
     # Soreness (1-10)
     soreness_legs = models.PositiveSmallIntegerField(
@@ -109,12 +144,17 @@ class DailyCheckIn(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(10)],
     )
     joint_pain = models.BooleanField(default=False)
+    had_alcohol_yesterday = models.BooleanField(default=False)
+    feels_pain_or_injury = models.BooleanField(default=False)
     pain_notes = models.TextField(blank=True)
     # Gym context
     did_gym_today = models.BooleanField(default=False)
     did_gym_yesterday = models.BooleanField(default=False)
     gym_focus = models.CharField(max_length=100, blank=True)
     wants_intensity = models.BooleanField(default=True)
+    wants_insanity_today = models.BooleanField(default=False)
+    wants_strength_today = models.BooleanField(default=False)
+    wants_recovery_today = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -191,6 +231,14 @@ class TrainingRecommendation(models.Model):
     """System-generated recommendation for a user on a given date (one per user per date)."""
 
     class RecommendationType(models.TextChoices):
+        INSANITY_MAX = 'insanity_max', 'Insanity Max'
+        INSANITY_MODERATE = 'insanity_moderate', 'Insanity Moderate'
+        STRENGTH_UPPER = 'strength_upper', 'Strength Upper'
+        STRENGTH_LOWER = 'strength_lower', 'Strength Lower'
+        HYBRID_TRAINING = 'hybrid_training', 'Hybrid Training'
+        MOBILITY_RECOVERY = 'mobility_recovery', 'Mobility Recovery'
+        CARDIO_LIGHT = 'cardio_light', 'Cardio Light'
+        FULL_REST = 'full_rest', 'Full Rest'
         RECOVERY = 'recovery', 'Recovery'
         LIGHT = 'light', 'Light'
         MODERATE = 'moderate', 'Moderate'
@@ -203,12 +251,25 @@ class TrainingRecommendation(models.Model):
         FULL_BODY = 'full_body', 'Full Body'
         REST_DAY = 'rest_day', 'Rest Day'
 
+    class IntensityLevel(models.TextChoices):
+        LOW = "low", "Low"
+        MODERATE = "moderate", "Moderate"
+        HIGH = "high", "High"
+        RECOVERY = "recovery", "Recovery"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='training_recommendations',
     )
     date = models.DateField(db_index=True)
+    checkin = models.ForeignKey(
+        DailyCheckIn,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recommendations',
+    )
     recommended_video = models.ForeignKey(
         TrainingVideo,
         on_delete=models.SET_NULL,
@@ -229,9 +290,18 @@ class TrainingRecommendation(models.Model):
         default=RecommendationType.MODERATE,
     )
     reasoning_summary = models.TextField(blank=True)
-    warnings = models.TextField(blank=True)
+    warnings = models.JSONField(default=list, blank=True)
     coach_message = models.TextField(blank=True)
     readiness_score = models.FloatField(null=True, blank=True)
+    intensity_level = models.CharField(
+        max_length=12,
+        choices=IntensityLevel.choices,
+        default=IntensityLevel.MODERATE,
+    )
+    duration_minutes = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
     metadata = models.JSONField(default=dict, blank=True)
     rule_based_payload = models.JSONField(default=dict, blank=True)
     llm_payload = models.JSONField(default=dict, blank=True)
@@ -277,3 +347,49 @@ class TrainingRecommendationExercise(models.Model):
 
     def __str__(self) -> str:
         return f"{self.recommendation} - {self.exercise.name} ({self.sets}x{self.reps})"
+
+
+class CompletedWorkout(models.Model):
+    """Completed workout feedback linked to a generated recommendation."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="completed_workouts",
+    )
+    recommendation = models.ForeignKey(
+        TrainingRecommendation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="completed_workouts",
+    )
+    date = models.DateField(db_index=True)
+    workout_type = models.CharField(max_length=32)
+    perceived_exertion = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    energy_after = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    satisfaction = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    completed = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "training_completed_workouts"
+        ordering = ["-date", "-created_at"]
+        indexes = [models.Index(fields=["user", "date"])]
+
+    def __str__(self) -> str:
+        return f"{self.user} - {self.date} ({self.workout_type})"
