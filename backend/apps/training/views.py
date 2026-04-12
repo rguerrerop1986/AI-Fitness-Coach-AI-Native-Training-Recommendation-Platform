@@ -15,10 +15,19 @@ from .serializers import (
     DailyCheckInSerializer,
     DailyCheckInCreateSerializer,
     DailyCheckInUpsertSerializer,
+    ExerciseSetCreateSerializer,
+    ExerciseSetSerializer,
+    ExerciseSetUpdateSerializer,
     GenerateRecommendationRequestSerializer,
     TrainingRecommendationSerializer,
+    WorkoutExerciseCreateSerializer,
+    WorkoutExerciseSerializer,
+    WorkoutExerciseUpdateSerializer,
     WorkoutLogSerializer,
     WorkoutLogCreateSerializer,
+    WorkoutSessionCreateSerializer,
+    WorkoutSessionSerializer,
+    WorkoutSessionUpdateSerializer,
     GenerateRecommendationInputSerializer,
     WorkoutFeedbackAnalyzeInputSerializer,
 )
@@ -27,6 +36,7 @@ from .services.adaptive_recommendation_service import AdaptiveRecommendationServ
 from .services.readiness_service import ReadinessService
 from .services.recommendation_service import generate_recommendation
 from .services.feedback_analysis import analyze_workout_feedback
+from .services.workout_session_service import WorkoutSessionService, build_workout_ai_payload
 
 
 class DailyCheckInListCreateView(ListCreateAPIView):
@@ -279,3 +289,112 @@ class TodayReadinessView(APIView):
             return Response({"detail": "No daily check-in for today."}, status=status.HTTP_404_NOT_FOUND)
         analysis = ReadinessService().analyze(checkin)
         return Response(analysis.asdict(), status=status.HTTP_200_OK)
+
+
+class WorkoutSessionCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = WorkoutSessionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session = WorkoutSessionService().create_session(user=request.user, payload=serializer.validated_data)
+        return Response(WorkoutSessionSerializer(session).data, status=status.HTTP_201_CREATED)
+
+
+class WorkoutSessionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        return Response(WorkoutSessionSerializer(session).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, session_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        serializer = WorkoutSessionUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = WorkoutSessionService().update_session(session=session, payload=serializer.validated_data)
+        return Response(WorkoutSessionSerializer(updated).data, status=status.HTTP_200_OK)
+
+
+class WorkoutSessionExerciseListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        serializer = WorkoutExerciseCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        exercise = WorkoutSessionService().add_exercise(session=session, payload=serializer.validated_data)
+        return Response(WorkoutExerciseSerializer(exercise).data, status=status.HTTP_201_CREATED)
+
+
+class WorkoutSessionExerciseDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, session_id: int, exercise_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        serializer = WorkoutExerciseUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        exercise = WorkoutSessionService().update_exercise(
+            session=session,
+            exercise_id=exercise_id,
+            payload=serializer.validated_data,
+        )
+        return Response(WorkoutExerciseSerializer(exercise).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, session_id: int, exercise_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        WorkoutSessionService().delete_exercise(session=session, exercise_id=exercise_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkoutSessionSetListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id: int, exercise_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        serializer = ExerciseSetCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        exercise_set = WorkoutSessionService().add_set(
+            session=session,
+            exercise_id=exercise_id,
+            payload=serializer.validated_data,
+        )
+        return Response(ExerciseSetSerializer(exercise_set).data, status=status.HTTP_201_CREATED)
+
+
+class WorkoutSessionSetDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, session_id: int, exercise_id: int, set_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        serializer = ExerciseSetUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        exercise_set = WorkoutSessionService().update_set(
+            session=session,
+            exercise_id=exercise_id,
+            set_id=set_id,
+            payload=serializer.validated_data,
+        )
+        return Response(ExerciseSetSerializer(exercise_set).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, session_id: int, exercise_id: int, set_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        WorkoutSessionService().delete_set(session=session, exercise_id=exercise_id, set_id=set_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkoutSessionCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        completed = WorkoutSessionService().complete_session(session=session)
+        return Response(WorkoutSessionSerializer(completed).data, status=status.HTTP_200_OK)
+
+
+class WorkoutSessionAIPayloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id: int):
+        session = WorkoutSessionService.get_user_session(user=request.user, session_id=session_id)
+        return Response(build_workout_ai_payload(session), status=status.HTTP_200_OK)

@@ -2,10 +2,13 @@ from django.contrib import admin
 from .models import (
     CompletedWorkout,
     DailyCheckIn,
+    ExerciseSet,
     TrainingRecommendation,
     TrainingRecommendationExercise,
     TrainingVideo,
+    WorkoutExercise,
     WorkoutLog,
+    WorkoutSession,
 )
 
 
@@ -55,3 +58,33 @@ class CompletedWorkoutAdmin(admin.ModelAdmin):
     list_display = ["user", "date", "workout_type", "completed", "perceived_exertion", "created_at"]
     list_filter = ["date", "completed", "workout_type"]
     raw_id_fields = ["user", "recommendation"]
+
+
+@admin.register(WorkoutSession)
+class WorkoutSessionAdmin(admin.ModelAdmin):
+    list_display = [
+        "user",
+        "session_date",
+        "workout_type",
+        "status",
+        "total_exercises",
+        "total_sets",
+        "total_reps",
+        "total_volume",
+        "completed_at",
+    ]
+    list_filter = ["workout_type", "status", "session_date"]
+    raw_id_fields = ["user"]
+
+
+@admin.register(WorkoutExercise)
+class WorkoutExerciseAdmin(admin.ModelAdmin):
+    list_display = ["workout_session", "exercise_name", "order", "intensity"]
+    list_filter = ["workout_session__workout_type"]
+    raw_id_fields = ["workout_session"]
+
+
+@admin.register(ExerciseSet)
+class ExerciseSetAdmin(admin.ModelAdmin):
+    list_display = ["workout_exercise", "set_number", "reps", "weight_kg", "intensity", "rest_seconds"]
+    raw_id_fields = ["workout_exercise"]

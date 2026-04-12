@@ -659,6 +659,13 @@ export default function ClientDashboard() {
                     <p className="text-sm text-gray-700 dark:text-gray-300">{training_plan_active!.coach_message}</p>
                   </div>
                 )}
+                <button
+                  type="button"
+                  onClick={() => navigate('/client/workout-session')}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700"
+                >
+                  Registrar entrenamiento
+                </button>
               </div>
             ) : (
               <div className="text-center py-8">

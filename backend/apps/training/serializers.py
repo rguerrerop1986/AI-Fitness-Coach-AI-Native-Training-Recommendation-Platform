@@ -4,7 +4,16 @@ Serializers for training module: check-ins, workout logs, recommendations, feedb
 from rest_framework import serializers
 from django.utils import timezone
 
-from .models import CompletedWorkout, DailyCheckIn, TrainingRecommendation, TrainingVideo, WorkoutLog
+from .models import (
+    CompletedWorkout,
+    DailyCheckIn,
+    ExerciseSet,
+    TrainingRecommendation,
+    TrainingVideo,
+    WorkoutExercise,
+    WorkoutLog,
+    WorkoutSession,
+)
 
 
 class TrainingVideoListSerializer(serializers.ModelSerializer):
@@ -422,3 +431,109 @@ class CompletedWorkoutSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class ExerciseSetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExerciseSet
+        fields = [
+            "id",
+            "set_number",
+            "reps",
+            "weight_kg",
+            "intensity",
+            "rest_seconds",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class WorkoutExerciseSerializer(serializers.ModelSerializer):
+    sets = ExerciseSetSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = WorkoutExercise
+        fields = [
+            "id",
+            "exercise_name",
+            "order",
+            "notes",
+            "intensity",
+            "sets",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class WorkoutSessionSerializer(serializers.ModelSerializer):
+    exercises = WorkoutExerciseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = WorkoutSession
+        fields = [
+            "id",
+            "session_date",
+            "workout_type",
+            "status",
+            "title",
+            "video_name",
+            "notes",
+            "ai_summary",
+            "completed_at",
+            "total_exercises",
+            "total_sets",
+            "total_reps",
+            "total_volume",
+            "exercises",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "completed_at",
+            "total_exercises",
+            "total_sets",
+            "total_reps",
+            "total_volume",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class WorkoutSessionCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutSession
+        fields = ["session_date", "workout_type", "title", "video_name", "notes", "ai_summary"]
+
+
+class WorkoutSessionUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutSession
+        fields = ["session_date", "workout_type", "title", "video_name", "notes", "ai_summary"]
+
+
+class WorkoutExerciseCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutExercise
+        fields = ["exercise_name", "order", "notes", "intensity"]
+
+
+class WorkoutExerciseUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutExercise
+        fields = ["exercise_name", "order", "notes", "intensity"]
+
+
+class ExerciseSetCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExerciseSet
+        fields = ["set_number", "reps", "weight_kg", "intensity", "rest_seconds"]
+
+
+class ExerciseSetUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExerciseSet
+        fields = ["set_number", "reps", "weight_kg", "intensity", "rest_seconds"]

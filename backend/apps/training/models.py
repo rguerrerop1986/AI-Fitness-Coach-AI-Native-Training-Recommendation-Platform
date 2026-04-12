@@ -4,6 +4,7 @@ Models for the training module: video catalog, daily check-ins, workout logs, an
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class TrainingVideo(models.Model):
@@ -225,6 +226,116 @@ class WorkoutLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} - {self.date} ({self.video.name if self.video else 'N/A'})"
+
+
+class WorkoutSession(models.Model):
+    """Track a workout session with support for video and gym flows."""
+
+    class WorkoutType(models.TextChoices):
+        VIDEO_WORKOUT = "video_workout", "Video Workout"
+        GYM_WORKOUT = "gym_workout", "Gym Workout"
+
+    class Status(models.TextChoices):
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="training_workout_sessions",
+    )
+    session_date = models.DateField(default=timezone.localdate, db_index=True)
+    workout_type = models.CharField(
+        max_length=20,
+        choices=WorkoutType.choices,
+        default=WorkoutType.VIDEO_WORKOUT,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.IN_PROGRESS,
+    )
+    title = models.CharField(max_length=200, blank=True)
+    video_name = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True)
+    ai_summary = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    total_exercises = models.PositiveIntegerField(default=0)
+    total_sets = models.PositiveIntegerField(default=0)
+    total_reps = models.PositiveIntegerField(default=0)
+    total_volume = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "training_workout_sessions"
+        ordering = ["-session_date", "-created_at"]
+        indexes = [models.Index(fields=["user", "session_date"])]
+
+    def __str__(self) -> str:
+        return f"{self.user} - {self.session_date} ({self.workout_type})"
+
+
+class WorkoutExercise(models.Model):
+    """An exercise row inside a gym workout session."""
+
+    workout_session = models.ForeignKey(
+        WorkoutSession,
+        on_delete=models.CASCADE,
+        related_name="exercises",
+    )
+    exercise_name = models.CharField(max_length=200)
+    order = models.PositiveSmallIntegerField(default=1)
+    notes = models.TextField(blank=True)
+    intensity = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "training_workout_exercises"
+        ordering = ["order", "id"]
+        indexes = [models.Index(fields=["workout_session", "order"])]
+
+    def __str__(self) -> str:
+        return f"{self.workout_session_id} - {self.exercise_name}"
+
+
+class ExerciseSet(models.Model):
+    """Set execution details for each workout exercise."""
+
+    workout_exercise = models.ForeignKey(
+        WorkoutExercise,
+        on_delete=models.CASCADE,
+        related_name="sets",
+    )
+    set_number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    reps = models.PositiveSmallIntegerField(null=True, blank=True)
+    weight_kg = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    intensity = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    rest_seconds = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "training_exercise_sets"
+        ordering = ["set_number", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workout_exercise", "set_number"],
+                name="training_exercise_sets_exercise_set_number_unique",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.workout_exercise_id} - Set {self.set_number}"
 
 
 class TrainingRecommendation(models.Model):

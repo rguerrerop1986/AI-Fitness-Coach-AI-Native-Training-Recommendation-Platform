@@ -3,6 +3,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
+from .initial_assessment_upload import initial_assessment_document_upload_to
+
 User = get_user_model()
 
 
@@ -166,3 +168,165 @@ class Measurement(models.Model):
     
     def __str__(self):
         return f"{self.client.full_name} - {self.date} ({self.weight_kg}kg)"
+
+
+class InitialAssessment(models.Model):
+    """
+    Entrevista inicial de entrenamiento y nutrición (historial por cliente).
+    Solo una fila activa por cliente (ver restricción en Meta).
+    """
+
+    class EstadoSalud(models.TextChoices):
+        EXCELENTE = 'excelente', 'Excelente'
+        BUENO = 'bueno', 'Bueno'
+        REGULAR = 'regular', 'Regular'
+        MALO = 'malo', 'Malo'
+
+    class ObjetivoPeso(models.TextChoices):
+        BAJAR = 'bajar', 'Bajar'
+        MANTENER = 'mantener', 'Mantener'
+        AUMENTAR = 'aumentar', 'Aumentar'
+
+    _scale_1_10 = [MinValueValidator(1), MaxValueValidator(10)]
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='initial_assessments',
+    )
+    version = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text='Solo una evaluación activa por cliente; las nuevas desactivan la anterior.',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='initial_assessments_created',
+    )
+
+    # 1. Datos personales
+    nombre_completo = models.CharField(max_length=255)
+    edad = models.PositiveIntegerField()
+    fecha_nacimiento = models.DateField()
+    telefono = models.CharField(max_length=40, blank=True)
+    contacto_emergencia = models.TextField(blank=True)
+    peso_actual = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+        help_text='Peso actual en kg',
+    )
+    estatura = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        validators=[MinValueValidator(0.50), MaxValueValidator(2.50)],
+        help_text='Estatura en metros (p. ej. 1.75)',
+    )
+    correo_electronico = models.EmailField()
+
+    # 2. Historial de salud
+    estado_salud = models.CharField(max_length=20, choices=EstadoSalud.choices)
+    ultima_revision_medica = models.DateField(null=True, blank=True)
+    tiene_lesion_o_impedimento = models.BooleanField(default=False)
+    lesion_o_impedimento_detalle = models.TextField(blank=True)
+    tiene_condicion_medica = models.BooleanField(default=False)
+    condicion_medica_detalle = models.TextField(blank=True)
+    alergias = models.TextField(blank=True)
+    medicamentos_actuales = models.TextField(blank=True)
+    suplementos_actuales = models.TextField(blank=True)
+
+    # 3. Estilo de vida
+    fuma = models.BooleanField(default=False)
+    frecuencia_fuma = models.CharField(max_length=255, blank=True)
+    consume_alcohol = models.BooleanField(default=False)
+    frecuencia_alcohol = models.CharField(max_length=255, blank=True)
+    ocupacion = models.CharField(max_length=255, blank=True)
+    horas_sueno_promedio = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(24)],
+    )
+
+    # 4. Actividad física
+    actualmente_realiza_ejercicio = models.BooleanField(default=False)
+    tipo_ejercicio_actual = models.TextField(blank=True)
+    dias_entrena_por_semana = models.PositiveSmallIntegerField(null=True, blank=True)
+    minutos_cardio_por_sesion = models.PositiveIntegerField(null=True, blank=True)
+    minutos_fuerza_por_sesion = models.PositiveIntegerField(null=True, blank=True)
+    actividades_fisicas_favoritas = models.TextField(blank=True)
+
+    # 5. Nutrición
+    sigue_dieta_actualmente = models.BooleanField(default=False)
+    dieta_actual_detalle = models.TextField(blank=True)
+    ha_seguido_plan_alimentacion = models.BooleanField(default=False)
+    plan_alimentacion_detalle = models.TextField(blank=True)
+    quien_compra_y_prepara_comida = models.TextField(blank=True)
+    comidas_por_dia = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # 6. Historial de peso
+    peso_mas_bajo_ultimos_5_anios = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.01)],
+    )
+    peso_mas_alto_ultimos_5_anios = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.01)],
+    )
+    objetivo_peso = models.CharField(max_length=20, choices=ObjetivoPeso.choices)
+
+    # 7. Metas y motivación
+    metas_salud_fitness = models.TextField()
+    obstaculos_principales = models.TextField()
+    fortalezas_personales = models.TextField()
+    importancia_meta_1_10 = models.PositiveSmallIntegerField(validators=_scale_1_10)
+    confianza_meta_1_10 = models.PositiveSmallIntegerField(validators=_scale_1_10)
+
+    # 8. Consentimiento
+    declaracion_aceptada = models.BooleanField(default=False)
+    nombre_cliente_consentimiento = models.CharField(max_length=255)
+    firma_texto = models.TextField()
+    fecha_consentimiento = models.DateField()
+
+    # 9. Documento adjunto (path vía storage; no binario en PostgreSQL)
+    documento_adjunto = models.FileField(
+        upload_to=initial_assessment_document_upload_to,
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text='Archivo en el backend de almacenamiento configurado (local hoy, Azure mañana).',
+    )
+    documento_nombre_original = models.CharField(max_length=512, blank=True)
+    documento_tamano_bytes = models.PositiveIntegerField(null=True, blank=True)
+    documento_content_type = models.CharField(max_length=255, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'initial_assessments'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['client', '-created_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['client'],
+                condition=models.Q(is_active=True),
+                name='uniq_active_initial_assessment_per_client',
+            ),
+        ]
+
+    def __str__(self):
+        return f'InitialAssessment v{self.version} client={self.client_id} active={self.is_active}'

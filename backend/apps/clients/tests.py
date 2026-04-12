@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from .models import Client
+from .services.initial_assessment_llm import detect_risk, generate_initial_assessment_coaching_plan
 
 User = get_user_model()
 
@@ -441,3 +442,38 @@ class ClientListDefaultActiveTest(TestCase):
         results = response.data.get('results', []) if isinstance(response.data, dict) else response.data
         emails = [c['email'] for c in results]
         self.assertIn('inactive@test.com', emails)
+
+
+class InitialAssessmentRiskDetectionTest(TestCase):
+    def test_detect_risk_critical_high_moderate_low(self):
+        self.assertEqual(detect_risk({"triglycerides": 1500}), "CRITICAL")
+        self.assertEqual(detect_risk({"triglycerides": 700}), "HIGH")
+        self.assertEqual(detect_risk({"glucose": 141}), "MODERATE")
+        self.assertEqual(detect_risk({"cholesterol": 300}), "MODERATE")
+        self.assertEqual(detect_risk({"glucose": 100, "triglycerides": 120, "cholesterol": 180}), "LOW")
+
+    def test_generate_plan_critical_short_circuit_and_low_intensity_only(self):
+        payload = {
+            "user_profile": {"name": "Juana Flores", "age": 55, "gender": "female"},
+            "medical_data": {"glucose": 141, "cholesterol": 458, "triglycerides": 1661, "vldl": 332},
+            "daily_checkin": {"sleep_quality": 6, "energy_level": 6, "fatigue": 5},
+            "recent_activity": ["No recent workouts"],
+            "goal": "lose weight and improve health",
+        }
+        result = generate_initial_assessment_coaching_plan(payload)
+        self.assertEqual(result["risk_level"], "CRITICAL")
+        self.assertIn(result["training_plan"]["type"], {"LOW_INTENSITY", "RECOVERY"})
+        for activity in result["training_plan"]["activities"]:
+            self.assertEqual(activity["intensity"], "low")
+        self.assertTrue(any("medical" in w.lower() or "pancreatitis" in w.lower() for w in result["warnings"]))
+
+    def test_generate_plan_forces_recovery_on_poor_readiness(self):
+        payload = {
+            "user_profile": {"name": "Test User"},
+            "medical_data": {"glucose": 90, "cholesterol": 180, "triglycerides": 120},
+            "daily_checkin": {"sleep_quality": 4, "energy_level": 8, "fatigue": 3},
+            "goal": "build consistency",
+        }
+        result = generate_initial_assessment_coaching_plan(payload)
+        self.assertEqual(result["risk_level"], "LOW")
+        self.assertEqual(result["training_plan"]["type"], "RECOVERY")
